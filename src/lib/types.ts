@@ -32,7 +32,7 @@ export interface UserProfile {
   
   export interface Entry {
     id: string
-    uid: string // user ID
+    uid: string
     title: string
     content: string
     date: string
@@ -47,6 +47,8 @@ export interface UserProfile {
     type: "journal" | "photo" | "map" | "artifact"
     createdAt: string
     updatedAt?: string
+    isDraft?: boolean
+    isFavorite?: boolean
   }
   
   export interface TimelineEvent {
@@ -85,7 +87,7 @@ export interface UserProfile {
   
   export interface Notification {
     id: string
-    uid: string // recipient
+    uid: string
     type: "comment" | "like" | "follow" | "badge" | "system"
     message: string
     link?: string

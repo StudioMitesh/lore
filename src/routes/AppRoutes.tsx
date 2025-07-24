@@ -1,13 +1,14 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import LandingPage from '../pages/LandingPage';
-import StartPage from '../pages/StartPage';
-import Dashboard from '../pages/Dashboard';
-import MapPage from '../pages/MapPage';
-import NewEntryPage from '../pages/NewEntryPage';
-import ProfilePage from '../pages/ProfilePage';
-import LoginPage from '../pages/LoginPage';
-import RegisterPage from '../pages/RegisterPage';
+import LandingPage from '@/pages/LandingPage';
+import StartPage from '@/pages/StartPage';
+import Dashboard from '@/pages/Dashboard';
+import MapPage from '@/pages/MapPage';
+import NewEntryPage from '@/pages/NewEntryPage';
+import ProfilePage from '@/pages/ProfilePage';
+import LoginPage from '@/pages/LoginPage';
+import RegisterPage from '@/pages/RegisterPage';
+import EditEntryPage from '@/pages/EditEntryPage';
 import { useAuth } from '@/context/AuthContext';
 
 const pageVariants = {
@@ -50,6 +51,7 @@ const AppRoutes = () => {
         <Route path="/dashboard" element={<PageWrapper><Dashboard /></PageWrapper>} />
         <Route path="/map" element={<PageWrapper><MapPage /></PageWrapper>} />
         <Route path="/new-entry" element={<PageWrapper><NewEntryPage /></PageWrapper>} />
+        <Route path="/edit-entry/:id" element={<PageWrapper><EditEntryPage /></PageWrapper>} />
         <Route path="/profile" element={<PageWrapper><ProfilePage /></PageWrapper>} />
       </Routes>
     </AnimatePresence>

@@ -5,9 +5,9 @@ import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { motion } from "framer-motion"
 import { Settings, Download, Share2, Save } from "lucide-react"
 
-import { db } from "../api/firebase"
-import { useAuth } from "../context/AuthContext"
-import { type UserProfile } from "../lib/types"
+import { db } from "@/api/firebase"
+import { useAuth } from "@/context/AuthContext"
+import { type UserProfile } from "@/lib/types"
 
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,8 @@ import { AnimatedButton } from "@/components/ui/animated-button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { StatCard } from "@/components/StatCard"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog"
+
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -83,7 +85,6 @@ export default function ProfilePage() {
       <main className="flex-1 pt-24 pb-16">
         <div className="container">
           <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8">
-            {/* Profile Column */}
             <div className="space-y-6">
               <ProfileCard
                 name={`${profile.first_name} ${profile.last_name}`}
@@ -114,50 +115,70 @@ export default function ProfilePage() {
                 </Button>
               </div>
 
-              {/* Editable Fields */}
-              {editMode && (
-                <div className="space-y-4 mt-6">
-                  <Input value={formData.first_name || ""} onChange={e => handleChange("first_name", e.target.value)} placeholder="First Name" />
-                  <Input value={formData.last_name || ""} onChange={e => handleChange("last_name", e.target.value)} placeholder="Last Name" />
-                  <Input value={formData.username || ""} onChange={e => handleChange("username", e.target.value)} placeholder="Username" />
-                  <Input value={formData.email || ""} disabled placeholder="Email" />
-                  <Textarea value={formData.bio || ""} onChange={e => handleChange("bio", e.target.value)} placeholder="Bio" />
-                  <Input value={formData.location || ""} onChange={e => handleChange("location", e.target.value)} placeholder="Location" />
-                  <Input value={formData.website || ""} onChange={e => handleChange("website", e.target.value)} placeholder="Website" />
+              <Dialog open={editMode} onOpenChange={setEditMode}>
+                <DialogContent className="max-w-3xl parchment border border-gold/20">
+                  <DialogHeader>
+                    <DialogTitle className="font-display text-deepbrown">Edit Your Profile</DialogTitle>
+                    <DialogDescription className="text-foreground">
+                      Update the details of your profile below. Changes will be saved once you click save.
+                    </DialogDescription>
+                  </DialogHeader>
 
-                  {/* Social Links */}
-                  <h4 className="text-sm text-muted-foreground mt-4">Social Links</h4>
-                  {["twitter", "instagram", "linkedin", "github"].map((platform) => (
-                    <Input
-                      key={platform}
-                      placeholder={`${platform.charAt(0).toUpperCase() + platform.slice(1)} URL`}
-                      value={formData.socialLinks?.[platform as keyof typeof formData.socialLinks] || ""}
-                      onChange={(e) => handleNestedChange("socialLinks", platform, e.target.value)}
-                    />
-                  ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                    <Input value={formData.first_name || ""} onChange={e => handleChange("first_name", e.target.value)} placeholder="First Name" />
+                    <Input value={formData.last_name || ""} onChange={e => handleChange("last_name", e.target.value)} placeholder="Last Name" />
+                    <Input value={formData.username || ""} onChange={e => handleChange("username", e.target.value)} placeholder="Username" />
+                    <Input value={formData.email || ""} disabled placeholder="Email" />
+                    <Input value={formData.location || ""} onChange={e => handleChange("location", e.target.value)} placeholder="Location" />
+                    <Input value={formData.website || ""} onChange={e => handleChange("website", e.target.value)} placeholder="Website" />
+                    <Textarea className="md:col-span-2" value={formData.bio || ""} onChange={e => handleChange("bio", e.target.value)} placeholder="Bio" />
 
-                  {/* Array Fields */}
-                  <h4 className="text-sm text-muted-foreground mt-4">Lists (comma-separated)</h4>
-                  <Input
-                    placeholder="Interests (comma-separated)"
-                    value={(formData.interests || []).join(", ")}
-                    onChange={(e) => handleArrayChange("interests", e.target.value)}
-                  />
-                  <Input
-                    placeholder="Languages Spoken (comma-separated)"
-                    value={(formData.languagesSpoken || []).join(", ")}
-                    onChange={(e) => handleArrayChange("languagesSpoken", e.target.value)}
-                  />
-                  <Input
-                    placeholder="Favorite Places (comma-separated)"
-                    value={(formData.favoritePlaces || []).join(", ")}
-                    onChange={(e) => handleArrayChange("favoritePlaces", e.target.value)}
-                  />
-                </div>
-              )}
+                    <div className="md:col-span-2">
+                      <h4 className="text-sm text-muted-foreground mb-2">Social Links</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {["twitter", "instagram", "linkedin", "github"].map((platform) => (
+                          <Input
+                            key={platform}
+                            placeholder={`${platform.charAt(0).toUpperCase() + platform.slice(1)} URL`}
+                            value={formData.socialLinks?.[platform as keyof typeof formData.socialLinks] || ""}
+                            onChange={(e) => handleNestedChange("socialLinks", platform, e.target.value)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 space-y-2">
+                      <h4 className="text-sm text-muted-foreground">Lists (comma-separated)</h4>
+                      <Input
+                        placeholder="Interests"
+                        value={(formData.interests || []).join(", ")}
+                        onChange={(e) => handleArrayChange("interests", e.target.value)}
+                      />
+                      <Input
+                        placeholder="Languages Spoken"
+                        value={(formData.languagesSpoken || []).join(", ")}
+                        onChange={(e) => handleArrayChange("languagesSpoken", e.target.value)}
+                      />
+                      <Input
+                        placeholder="Favorite Places"
+                        value={(formData.favoritePlaces || []).join(", ")}
+                        onChange={(e) => handleArrayChange("favoritePlaces", e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter className="gap-2 mt-4">
+                    <DialogClose asChild>
+                      <Button variant="ghost" type="button">Cancel</Button>
+                    </DialogClose>
+                    <Button onClick={handleSave} className="bg-gold text-deepbrown hover:bg-gold/80">
+                      <Save className="mr-2 h-4 w-4" /> Save Changes
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
-            {/* Main Content Column */}
             <div className="space-y-8">
               <Tabs defaultValue="entries" className="w-full">
                 <TabsList className="bg-parchment-dark border border-gold/20">

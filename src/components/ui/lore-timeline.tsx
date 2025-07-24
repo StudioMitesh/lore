@@ -18,7 +18,6 @@ interface LoreTimelineProps {
 }
 
 export function LoreTimeline({ entries, className, onEntryClick }: LoreTimelineProps) {
-  // Sort entries by date
   const sortedEntries = [...entries].sort((a, b) => b.date.getTime() - a.date.getTime())
 
   const typeIcons = {

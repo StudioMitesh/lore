@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '@/api/firebase'
-import { type UserProfile } from '../lib/types'
+import { type UserProfile } from '@/lib/types'
 import { formatISO } from 'date-fns'
 
 const RegisterPage = () => {

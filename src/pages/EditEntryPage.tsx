@@ -1,8 +1,8 @@
 "use client"
-
 import * as React from "react"
 import { motion } from "framer-motion"
-import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive } from "lucide-react"
+import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive, ArrowLeft, Loader2, Trash2 } from "lucide-react"
+import { useNavigate, useParams } from "react-router-dom"
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,9 +15,17 @@ import { MapViewer } from "@/components/MapViewer"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { entryService, type CreateEntryData } from "@/services/entryService"
+import { type Entry } from "@/lib/types"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "sonner"
-import { useNavigate } from "react-router-dom"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface FormData {
   title: string
@@ -28,12 +36,16 @@ interface FormData {
   coordinates: { lat: number; lng: number }
   tags: string[]
   type: "journal" | "photo" | "map" | "artifact"
+  isDraft?: boolean
 }
 
-export default function NewEntryPage() {
+export default function EditEntryPage() {
   const navigate = useNavigate()
+  const params = useParams()
   const { user } = useAuth()
+  const entryId = params?.id as string
   
+  const [entry, setEntry] = React.useState<Entry | null>(null)
   const [formData, setFormData] = React.useState<FormData>({
     title: "",
     content: "",
@@ -42,23 +54,77 @@ export default function NewEntryPage() {
     country: "",
     coordinates: { lat: 0, lng: 0 },
     tags: [],
-    type: "journal"
+    type: "journal",
+    isDraft: false
   })
   
-  const [images, setImages] = React.useState<File[]>([])
-  const [imagePreviewUrls, setImagePreviewUrls] = React.useState<string[]>([])
+  const [existingImages, setExistingImages] = React.useState<string[]>([])
+  const [newImages, setNewImages] = React.useState<File[]>([])
+  const [newImagePreviewUrls, setNewImagePreviewUrls] = React.useState<string[]>([])
+  const [removedImageUrls, setRemovedImageUrls] = React.useState<string[]>([])
   const [currentTag, setCurrentTag] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
+  const [isInitialLoading, setIsInitialLoading] = React.useState(true)
   const [locationSelected, setLocationSelected] = React.useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
+  const [isDeleting, setIsDeleting] = React.useState(false)
+
+  React.useEffect(() => {
+    const loadEntry = async () => {
+      if (!entryId || !user) return
+
+      try {
+        setIsInitialLoading(true)
+        const entryData = await entryService.getEntry(entryId)
+        
+        if (!entryData) {
+          toast.error("Entry not found")
+          navigate('/dashboard')
+          return
+        }
+
+        if (entryData.uid !== user.uid) {
+          toast.error("You don't have permission to edit this entry")
+          navigate('/dashboard')
+          return
+        }
+
+        setEntry(entryData)
+        setFormData({
+          title: entryData.title,
+          content: entryData.content,
+          date: entryData.date,
+          location: entryData.location,
+          country: entryData.country,
+          coordinates: entryData.coordinates,
+          tags: entryData.tags || [],
+          type: entryData.type,
+          isDraft: entryData.isDraft || false
+        })
+        
+        setExistingImages(entryData.mediaUrls || [])
+        setLocationSelected(entryData.coordinates.lat !== 0 || entryData.coordinates.lng !== 0)
+      } catch (error) {
+        console.error('Error loading entry:', error)
+        toast.error("Failed to load entry")
+        navigate('/dashboard')
+      } finally {
+        setIsInitialLoading(false)
+      }
+    }
+
+    loadEntry()
+  }, [entryId, user, navigate])
 
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleAddImage = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddNewImage = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     if (files.length === 0) return
 
+    // Validate file types and sizes
     const validFiles = files.filter(file => {
       const isValidType = file.type.startsWith('image/')
       const isValidSize = file.size <= 10 * 1024 * 1024 // 10MB limit
@@ -76,17 +142,24 @@ export default function NewEntryPage() {
 
     if (validFiles.length === 0) return
 
-    setImages(prev => [...prev, ...validFiles])
+    setNewImages(prev => [...prev, ...validFiles])
     
+    // Create preview URLs
     const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file))
-    setImagePreviewUrls(prev => [...prev, ...newPreviewUrls])
+    setNewImagePreviewUrls(prev => [...prev, ...newPreviewUrls])
   }
 
-  const handleRemoveImage = (index: number) => {
-    URL.revokeObjectURL(imagePreviewUrls[index])
+  const handleRemoveExistingImage = (imageUrl: string) => {
+    setExistingImages(prev => prev.filter(url => url !== imageUrl))
+    setRemovedImageUrls(prev => [...prev, imageUrl])
+  }
+
+  const handleRemoveNewImage = (index: number) => {
+    // Revoke the object URL to prevent memory leaks
+    URL.revokeObjectURL(newImagePreviewUrls[index])
     
-    setImages(prev => prev.filter((_, i) => i !== index))
-    setImagePreviewUrls(prev => prev.filter((_, i) => i !== index))
+    setNewImages(prev => prev.filter((_, i) => i !== index))
+    setNewImagePreviewUrls(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleAddTag = () => {
@@ -111,7 +184,7 @@ export default function NewEntryPage() {
       handleInputChange('country', country)
     }
     setLocationSelected(true)
-    toast.success("Location set successfully!")
+    toast.success("Location updated successfully!")
   }
 
   const validateForm = (): boolean => {
@@ -127,16 +200,12 @@ export default function NewEntryPage() {
       toast.error("Please enter a location")
       return false
     }
-    if (!locationSelected && (formData.coordinates.lat === 0 && formData.coordinates.lng === 0)) {
-      toast.error("Please select a location on the map")
-      return false
-    }
     return true
   }
 
-  const handleSave = async (isDraft = false) => {
-    if (!user) {
-      toast.error("You must be logged in to save an entry")
+  const handleUpdate = async (isDraft = false) => {
+    if (!user || !entry) {
+      toast.error("Unable to update entry")
       return
     }
 
@@ -144,20 +213,37 @@ export default function NewEntryPage() {
 
     setIsLoading(true)
     try {
-      const entryData: CreateEntryData = {
+      const updateData: Partial<CreateEntryData> = {
         ...formData,
         isDraft
       }
 
-      const entryId = await entryService.createEntry(user.uid, entryData, images)
+      await entryService.updateEntry(entry.id, updateData, newImages)
       
-      toast.success(isDraft ? "Entry saved as draft!" : "Entry saved successfully!")
+      toast.success(isDraft ? "Entry saved as draft!" : "Entry updated successfully!")
       navigate('/dashboard')
     } catch (error) {
-      console.error('Error saving entry:', error)
-      toast.error("Failed to save entry. Please try again.")
+      console.error('Error updating entry:', error)
+      toast.error("Failed to update entry. Please try again.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!entry) return
+
+    setIsDeleting(true)
+    try {
+      await entryService.deleteEntry(entry.id)
+      toast.success("Entry deleted successfully")
+      navigate('/dashboard')
+    } catch (error) {
+      console.error('Error deleting entry:', error)
+      toast.error("Failed to delete entry")
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteDialog(false)
     }
   }
 
@@ -171,11 +257,47 @@ export default function NewEntryPage() {
     }
   }
 
+  // Cleanup preview URLs on unmount
   React.useEffect(() => {
     return () => {
-      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
+      newImagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
     }
   }, [])
+
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen flex flex-col parchment-texture">
+        <Navbar />
+        <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-gold mx-auto mb-4" />
+            <p className="text-deepbrown/70">Loading entry...</p>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!entry) {
+    return (
+      <div className="min-h-screen flex flex-col parchment-texture">
+        <Navbar />
+        <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="font-display text-2xl font-bold text-deepbrown mb-4">
+              Entry Not Found
+            </h2>
+            <p className="text-deepbrown/70 mb-6">
+              The entry you're looking for doesn't exist or you don't have permission to edit it.
+            </p>
+            <Button onClick={() => navigate('/dashboard')} className="bg-gold hover:bg-gold/90">
+              Back to Dashboard
+            </Button>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col parchment-texture">
@@ -185,22 +307,41 @@ export default function NewEntryPage() {
       <main className="flex-1 pt-24 pb-16">
         <div className="container max-w-4xl">
           <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="font-display text-3xl font-bold text-deepbrown">Create New Entry</h1>
-              <p className="text-deepbrown/70 mt-1">Document your adventures and preserve your memories</p>
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="border-gold/30 bg-transparent"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div>
+                <h1 className="font-display text-3xl font-bold text-deepbrown">Edit Entry</h1>
+                <p className="text-deepbrown/70 mt-1">Update your adventure and memories</p>
+              </div>
             </div>
             <div className="flex gap-3">
               <Button 
                 variant="outline" 
+                className="border-red-300 bg-transparent text-red-600 hover:bg-red-50"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isLoading || isDeleting}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+              <Button 
+                variant="outline" 
                 className="border-gold/30 bg-transparent"
-                onClick={() => handleSave(true)}
+                onClick={() => handleUpdate(true)}
                 disabled={isLoading}
               >
                 Save as Draft
               </Button>
               <AnimatedButton 
                 animationType="wax-stamp"
-                onClick={() => handleSave(false)}
+                onClick={() => handleUpdate(false)}
                 disabled={isLoading}
                 className="min-w-[140px]"
               >
@@ -214,7 +355,7 @@ export default function NewEntryPage() {
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    Save Lore
+                    Update Entry
                   </>
                 )}
               </AnimatedButton>
@@ -222,6 +363,7 @@ export default function NewEntryPage() {
           </div>
 
           <div className="space-y-8">
+            {/* Entry Type & Basic Details */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
@@ -325,6 +467,7 @@ export default function NewEntryPage() {
               </CardContent>
             </Card>
 
+            {/* Story Content */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown">Your Story *</CardTitle>
@@ -343,6 +486,7 @@ export default function NewEntryPage() {
               </CardContent>
             </Card>
 
+            {/* Tags */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
@@ -390,6 +534,7 @@ export default function NewEntryPage() {
               </CardContent>
             </Card>
 
+            {/* Photos */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-xl text-deepbrown">Photos</CardTitle>
@@ -398,7 +543,7 @@ export default function NewEntryPage() {
                     type="file"
                     multiple
                     accept="image/*"
-                    onChange={handleAddImage}
+                    onChange={handleAddNewImage}
                     className="hidden"
                     id="photo-upload"
                   />
@@ -414,34 +559,77 @@ export default function NewEntryPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {imagePreviewUrls.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {imagePreviewUrls.map((url, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="relative group"
-                      >
-                        <img
-                          src={url}
-                          alt={`Travel photo ${index + 1}`}
-                          className="w-full h-40 object-cover rounded-lg border border-gold/20"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleRemoveImage(index)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                        <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                          {images[index]?.name}
+                {(existingImages.length > 0 || newImagePreviewUrls.length > 0) ? (
+                  <div className="space-y-6">
+                    {/* Existing Images */}
+                    {existingImages.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-deepbrown mb-3">Current Photos</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                          {existingImages.map((imageUrl, index) => (
+                            <motion.div
+                              key={`existing-${index}`}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ duration: 0.3 }}
+                              className="relative group"
+                            >
+                              <img
+                                src={imageUrl}
+                                alt={`Existing photo ${index + 1}`}
+                                className="w-full h-40 object-cover rounded-lg border border-gold/20"
+                              />
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleRemoveExistingImage(imageUrl)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                              <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                                Existing
+                              </div>
+                            </motion.div>
+                          ))}
                         </div>
-                      </motion.div>
-                    ))}
+                      </div>
+                    )}
+
+                    {/* New Images */}
+                    {newImagePreviewUrls.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-deepbrown mb-3">New Photos</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                          {newImagePreviewUrls.map((url, index) => (
+                            <motion.div
+                              key={`new-${index}`}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ duration: 0.3 }}
+                              className="relative group"
+                            >
+                              <img
+                                src={url}
+                                alt={`New photo ${index + 1}`}
+                                className="w-full h-40 object-cover rounded-lg border border-gold/20"
+                              />
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleRemoveNewImage(index)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                              <div className="absolute bottom-2 left-2 bg-green-600/80 text-white px-2 py-1 rounded text-xs">
+                                New
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="border-2 border-dashed border-gold/30 rounded-lg p-8 text-center">
@@ -455,11 +643,12 @@ export default function NewEntryPage() {
               </CardContent>
             </Card>
 
+            {/* Interactive Map */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown">Map Location *</CardTitle>
                 <p className="text-sm text-deepbrown/70">
-                  Click on the map to set the exact location of your adventure
+                  Click on the map to update the exact location of your adventure
                 </p>
               </CardHeader>
               <CardContent>
@@ -488,46 +677,98 @@ export default function NewEntryPage() {
               </CardContent>
             </Card>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gold/20">
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row justify-between gap-4 pt-6 border-t border-gold/20">
               <Button 
                 variant="outline" 
-                className="border-gold/30 bg-transparent"
-                onClick={() => navigate('/dashboard')}
+                className="border-red-300 bg-transparent text-red-600 hover:bg-red-50 sm:w-auto"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isLoading || isDeleting}
               >
-                Cancel
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Entry
               </Button>
-              <Button 
-                variant="outline" 
-                className="border-gold/30 bg-transparent"
-                onClick={() => handleSave(true)}
-                disabled={isLoading}
-              >
-                Save as Draft
-              </Button>
-              <AnimatedButton 
-                animationType="wax-stamp"
-                onClick={() => handleSave(false)}
-                disabled={isLoading}
-                className="min-w-[140px]"
-              >
-                {isLoading ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  >
-                    <Save className="h-4 w-4" />
-                  </motion.div>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Lore
-                  </>
-                )}
-              </AnimatedButton>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button 
+                  variant="outline" 
+                  className="border-gold/30 bg-transparent"
+                  onClick={() => navigate(-1)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="border-gold/30 bg-transparent"
+                  onClick={() => handleUpdate(true)}
+                  disabled={isLoading}
+                >
+                  Save as Draft
+                </Button>
+                <AnimatedButton 
+                  animationType="wax-stamp"
+                  onClick={() => handleUpdate(false)}
+                  disabled={isLoading}
+                  className="min-w-[140px]"
+                >
+                  {isLoading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    >
+                      <Save className="h-4 w-4" />
+                    </motion.div>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Update Entry
+                    </>
+                  )}
+                </AnimatedButton>
+              </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Entry</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{formData.title}"? This action cannot be undone and will permanently remove the entry and all associated photos.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="mr-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </motion.div>
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Delete Entry
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

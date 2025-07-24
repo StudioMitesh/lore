@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { AnimatedButton } from "@/components/ui/animated-button"
 import { signOut } from "firebase/auth"
-import { auth } from "../api/firebase"
+import { auth } from "@/api/firebase"
 import { useNavigate } from "react-router-dom"
 
 
@@ -81,7 +81,7 @@ export function Navbar() {
             )
         })}
 
-        <AnimatedButton animationType="glow" className="ml-4">
+        <AnimatedButton onClick={() => navigate('/new-entry')} animationType="glow" className="ml-4">
             <Plus className="mr-1 h-4 w-4" />
             New Entry
         </AnimatedButton>
@@ -119,7 +119,7 @@ export function Navbar() {
                 )
             })}
 
-            <AnimatedButton className="mt-4 w-full" animationType="glow">
+            <AnimatedButton onClick={() => navigate('/new-entry')} className="mt-4 w-full" animationType="glow">
                 <Plus className="mr-2 h-4 w-4" />
                 New Entry
             </AnimatedButton>

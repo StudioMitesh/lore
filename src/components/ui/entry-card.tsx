@@ -1,9 +1,29 @@
 "use client"
 import { motion } from "framer-motion"
 import { format } from "date-fns"
-import { MapPin, Calendar, ChevronRight } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Heart, MapPin, Calendar, Eye, Edit3, MoreVertical, Trash2 } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { useState } from "react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { entryService } from "@/services/entryService"
+import { toast } from "sonner"
 
 interface EntryCardProps {
   id: string
@@ -11,58 +31,262 @@ interface EntryCardProps {
   location: string
   date: Date
   excerpt: string
-  imageUrl?: string
-  className?: string
-  index?: number
+  imageUrl: string
+  index: number
+  type?: string
+  isFavorite?: boolean
+  isDraft?: boolean
+  entryIcon?: React.ReactNode
+  onFavoriteToggle?: () => void
+  onDelete?: () => void
 }
 
-export function EntryCard({ id, title, location, date, excerpt, imageUrl, className, index = 0 }: EntryCardProps) {
+export function EntryCard({
+  id,
+  title,
+  location,
+  date,
+  excerpt,
+  imageUrl,
+  index,
+  type = "journal",
+  isFavorite = false,
+  isDraft = false,
+  entryIcon,
+  onFavoriteToggle,
+  onDelete
+}: EntryCardProps) {
+  const navigate = useNavigate()
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleCardClick = () => {
+    if (isDraft) {
+      navigate(`/edit-entry/${id}`)
+    } else {
+      navigate(`/entry/${id}`)
+    }
+  }
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigate(`/edit-entry/${id}`)
+  }
+
+  const handleView = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigate(`/entry/${id}`)
+  }
+
+  const handleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onFavoriteToggle?.()
+  }
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowDeleteDialog(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    try {
+      setIsDeleting(true)
+      await entryService.deleteEntry(id)
+      toast.success("Entry deleted successfully")
+      onDelete?.()
+      setShowDeleteDialog(false)
+    } catch (error) {
+      console.error('Error deleting entry:', error)
+      toast.error("Failed to delete entry")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "journal": return "bg-blue-100 text-blue-800 border-blue-200"
+      case "photo": return "bg-green-100 text-green-800 border-green-200"
+      case "map": return "bg-purple-100 text-purple-800 border-purple-200"
+      case "artifact": return "bg-orange-100 text-orange-800 border-orange-200"
+      default: return "bg-gray-100 text-gray-800 border-gray-200"
+    }
+  }
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        delay: index * 0.1,
-        duration: 0.5,
-        ease: "easeOut",
-      }}
-    >
-      <Card
-        className={cn(
-          "overflow-hidden transition-all duration-300 hover:shadow-lg border-gold/20 bg-parchment-light",
-          className,
-        )}
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: index * 0.1 }}
+        whileHover={{ y: -5 }}
+        className="group cursor-pointer"
+        onClick={handleCardClick}
       >
-        <div className="relative">
-          {imageUrl && (
-            <div className="h-48 overflow-hidden">
-              <img
-                src={imageUrl || "/placeholder.svg"}
-                alt={title}
-                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
-              />
+        <Card className="border-gold/20 bg-parchment-light hover:shadow-lg transition-all duration-300 overflow-hidden">
+          <div className="relative">
+            <img
+              src={imageUrl}
+              alt={title}
+              className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+            
+            {/* Overlay with gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+            
+            {/* Top badges and actions */}
+            <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+              <div className="flex gap-2">
+                {isDraft && (
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                    Draft
+                  </Badge>
+                )}
+                {type && (
+                  <Badge variant="outline" className={getTypeColor(type)}>
+                    <span className="mr-1">{entryIcon}</span>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white"
+                  onClick={handleFavorite}
+                >
+                  <Heart 
+                    className={`h-4 w-4 transition-colors ${
+                      isFavorite ? 'fill-red-500 text-red-500' : 'text-white hover:text-red-300'
+                    }`} 
+                  />
+                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    {!isDraft && (
+                      <DropdownMenuItem onClick={handleView}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Entry
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={handleEdit}>
+                      <Edit3 className="mr-2 h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={handleDeleteClick}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
-          )}
-          <CardHeader className={cn(imageUrl ? "pt-4" : "")}>
-            <CardTitle className="font-display text-xl text-deepbrown">{title}</CardTitle>
-            <CardDescription className="flex items-center gap-1 text-deepbrown/70">
-              <MapPin className="h-3.5 w-3.5" /> {location}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-deepbrown/80 line-clamp-3">{excerpt}</p>
+
+            {/* Bottom overlay content */}
+            <div className="absolute bottom-3 left-3 right-3">
+              <div className="flex items-center gap-2 text-white/90 text-sm mb-1">
+                <MapPin className="h-3 w-3" />
+                <span className="truncate">{location}</span>
+              </div>
+              <div className="flex items-center gap-2 text-white/70 text-xs">
+                <Calendar className="h-3 w-3" />
+                <span>{format(date, "MMM d, yyyy")}</span>
+              </div>
+            </div>
+          </div>
+
+          <CardContent className="p-4">
+            <h3 className="font-display text-lg font-semibold text-deepbrown mb-2 line-clamp-1">
+              {title}
+            </h3>
+            <p className="text-deepbrown/70 text-sm leading-relaxed line-clamp-3">
+              {excerpt}
+            </p>
+            
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-gold/10">
+              <div className="flex items-center gap-2 text-xs text-deepbrown/50">
+                {isDraft ? "Draft created" : "Published"} {format(date, "MMM d")}
+              </div>
+              
+              <motion.div
+                className="flex items-center gap-1 text-gold hover:text-gold/80 text-sm font-medium"
+                whileHover={{ x: 3 }}
+              >
+                {isDraft ? "Continue editing" : "Read more"}
+                <svg 
+                  className="w-4 h-4 transition-transform group-hover:translate-x-1" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M9 5l7 7-7 7" 
+                  />
+                </svg>
+              </motion.div>
+            </div>
           </CardContent>
-          <CardFooter className="flex justify-between items-center border-t border-gold/10 pt-3">
-            <div className="flex items-center text-xs text-deepbrown/60">
-              <Calendar className="h-3.5 w-3.5 mr-1" />
-              {format(date, "MMM d, yyyy")}
-            </div>
-            <motion.button whileHover={{ x: 3 }} whileTap={{ scale: 0.95 }} className="text-gold hover:text-gold-dark">
-              <ChevronRight className="h-5 w-5" />
-            </motion.button>
-          </CardFooter>
-        </div>
-      </Card>
-    </motion.div>
+        </Card>
+      </motion.div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Entry</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{title}"? This action cannot be undone and will permanently remove the entry and all associated photos.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="mr-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </motion.div>
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Delete Entry
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
