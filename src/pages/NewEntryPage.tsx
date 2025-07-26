@@ -16,7 +16,7 @@ import { MapViewer } from "@/components/MapViewer"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { db, storage } from "@/api/firebase"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from '@/context/useAuth'
 import { type Entry, type UserProfile } from "@/lib/types"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"

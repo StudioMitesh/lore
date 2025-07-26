@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { db } from "@/api/firebase"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from '@/context/useAuth'
 import { type Entry, type MapLocation, type Trip } from "@/lib/types"
 import { toast } from "sonner"
 

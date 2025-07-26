@@ -16,7 +16,7 @@ import { MapViewer } from "@/components/MapViewer"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { db, storage } from "@/api/firebase"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from '@/context/useAuth'
 import { type Entry, type UserProfile } from "@/lib/types"
 import { toast } from "sonner"
 import {
@@ -333,8 +333,7 @@ export default function EditEntryPage() {
             updatedAt: new Date().toISOString()
           })
         } catch (error) {
-          // Timeline event might already exist, that's okay
-          console.log('Timeline event may already exist')
+          console.log('Timeline event may already exist: ', error)
         }
       }
 
@@ -351,8 +350,7 @@ export default function EditEntryPage() {
             updatedAt: new Date().toISOString()
           })
         } catch (error) {
-          // Map location might already exist, that's okay
-          console.log('Map location may already exist')
+          console.log('Map location may already exist: ', error)
         }
       }
       
@@ -407,7 +405,7 @@ export default function EditEntryPage() {
     return () => {
       newImagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
     }
-  }, [])
+  }, [newImagePreviewUrls])
 
   if (isInitialLoading) {
     return (

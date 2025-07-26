@@ -3,7 +3,8 @@
 import * as React from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import type { VariantProps } from "class-variance-authority"
 
 interface AnimatedButtonProps
@@ -23,59 +24,57 @@ export function AnimatedButton({
   asChild = false,
   ...props
 }: AnimatedButtonProps) {
-  const animations = {
+const animations = {
     glow: {
-      rest: {
-        boxShadow: "0 0 0px rgba(212, 175, 55, 0)",
+        rest: {
         scale: 1,
-        transition: { duration: 0.2, ease: "easeInOut" },
-      },
-      hover: {
-        boxShadow: "0 0 15px rgba(212, 175, 55, 0.6)",
+        transition: { duration: 0.2, ease: "easeInOut" as const },
+        },
+        hover: {
         scale: 1.02,
-        transition: { duration: 0.2, ease: "easeInOut" },
-      },
-      tap: {
+        transition: { duration: 0.2, ease: "easeInOut" as const },
+        },
+        tap: {
         scale: 0.98,
         transition: { duration: 0.1 },
-      },
+        },
     },
     float: {
-      rest: {
+        rest: {
         y: 0,
-        transition: { duration: 0.2, ease: "easeInOut" },
-      },
-      hover: {
+        transition: { duration: 0.2, ease: "easeInOut" as const },
+        },
+        hover: {
         y: -5,
-        transition: { duration: 0.2, ease: "easeInOut" },
-      },
-      tap: {
+        transition: { duration: 0.2, ease: "easeInOut" as const },
+        },
+        tap: {
         y: 0,
         transition: { duration: 0.1 },
-      },
-    },
-    "wax-stamp": {
-      rest: {
-        scale: 1,
-        backgroundColor: "var(--gold)",
-        transition: { duration: 0.2, ease: "easeInOut" },
-      },
-      hover: {
-        scale: 1.02,
-        backgroundColor: "var(--gold-dark)",
-        transition: { duration: 0.2, ease: "easeInOut" },
-      },
-      tap: {
-        scale: 0.95,
-        transition: {
-          duration: 0.1,
-          type: "spring",
-          stiffness: 400,
-          damping: 15,
         },
-      },
     },
-  }
+     "wax-stamp": {
+        rest: {
+            scale: 1,
+            backgroundColor: "var(--gold)",
+            transition: { duration: 0.2, ease: "easeInOut" as const },
+        },
+        hover: {
+            scale: 1.02,
+            backgroundColor: "var(--gold-dark)",
+            transition: { duration: 0.2, ease: "easeInOut" as const },
+        },
+        tap: {
+            scale: 0.95,
+            transition: {
+            duration: 0.1,
+            type: "spring" as const,
+            stiffness: 400,
+            damping: 15,
+            },
+        },
+    },
+}
 
   const currentAnimation = animations[animationType]
 
@@ -92,8 +91,8 @@ export function AnimatedButton({
         variant={variant}
         size={size}
         className={cn(
-          animationType === "wax-stamp" &&
-            "bg-gold hover:bg-gold-dark text-white border-gold-dark",
+          animationType === "glow" && "transition-shadow hover:shadow-[0_0_15px_rgba(212,175,55,0.6)]",
+          animationType === "wax-stamp" && "bg-gold hover:bg-gold-dark text-white border-gold-dark",
           className
         )}
         asChild={asChild}

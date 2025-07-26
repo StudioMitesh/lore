@@ -3,7 +3,7 @@ import { motion } from "framer-motion"
 import { format } from "date-fns"
 import { Search, Plus, MapPin, Calendar, Filter, Heart, BookOpen, Camera, Map, Archive, Loader2 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,7 +12,7 @@ import { EntryCard } from "@/components/ui/entry-card"
 import { AnimatedButton } from "@/components/ui/animated-button"
 import { type Entry } from "@/lib/types"
 import { entryService } from "@/services/entryService"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from '@/context/useAuth'
 import { toast } from "sonner"
 
 interface UserStats {
@@ -42,7 +42,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
 
-  const loadEntries = async () => {
+  const loadEntries = useCallback(async () => {
     if (!user) return
     
     try {
@@ -65,7 +65,7 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user])
 
   const handleSearch = async () => {
     if (!user || !searchTerm.trim()) {
@@ -126,13 +126,13 @@ export default function Dashboard() {
     if (user && !authLoading) {
       loadEntries()
     }
-  }, [user, authLoading])
+  }, [user, authLoading, loadEntries])
 
   useEffect(() => {
     if (searchTerm === "") {
       loadEntries()
     }
-  }, [searchTerm])
+  }, [loadEntries, searchTerm])
 
   if (authLoading || isLoading) {
     return (

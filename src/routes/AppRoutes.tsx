@@ -1,5 +1,5 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, type Transition } from 'framer-motion';
 import LandingPage from '@/pages/LandingPage';
 import StartPage from '@/pages/StartPage';
 import Dashboard from '@/pages/Dashboard';
@@ -9,7 +9,7 @@ import ProfilePage from '@/pages/ProfilePage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import EditEntryPage from '@/pages/EditEntryPage';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/useAuth';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
@@ -17,7 +17,7 @@ const pageVariants = {
   out: { opacity: 0, y: -20 },
 };
 
-const pageTransition = {
+const pageTransition: Transition = {
   type: 'tween',
   ease: 'anticipate',
   duration: 0.5,

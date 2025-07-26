@@ -2,23 +2,16 @@
 import { motion } from "framer-motion"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-
-interface TimelineEntry {
-  id: string
-  title: string
-  date: Date
-  location: string
-  type: "journal" | "photo" | "artifact" | "map"
-}
+import { type TimelineEvent } from "@/lib/types"
 
 interface LoreTimelineProps {
-  entries: TimelineEntry[]
+  entries: TimelineEvent[]
   className?: string
   onEntryClick?: (id: string) => void
 }
 
 export function LoreTimeline({ entries, className, onEntryClick }: LoreTimelineProps) {
-  const sortedEntries = [...entries].sort((a, b) => b.date.getTime() - a.date.getTime())
+  const sortedEntries = [...entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const typeIcons = {
     journal: "📝",

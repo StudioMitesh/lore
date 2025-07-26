@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, setDoc } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { motion } from "framer-motion"
 import { Settings, Download, Share2, Save, Upload, Loader2, MapPin, BookOpen, Camera, Map, Archive } from "lucide-react"
 
 import { db, storage } from "@/api/firebase"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from '@/context/useAuth'
 import { type UserProfile, type Entry, type TimelineEvent } from "@/lib/types"
 
 import { Navbar } from "@/components/Navbar"
@@ -35,6 +35,42 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null)
   const [selectedCover, setSelectedCover] = useState<File | null>(null)
+
+  const updateProfileStats = useCallback(async (entriesData: Entry[]) => {
+    if (!user) return
+
+    const countries = new Set(entriesData.map(entry => entry.country))
+    const continents = new Set(entriesData.map(entry => {
+      // Simple continent mapping - you might want to use a more comprehensive mapping
+      const country = entry.country.toLowerCase()
+      if (['usa', 'canada', 'mexico'].some(c => country.includes(c))) return 'North America'
+      if (['brazil', 'argentina', 'chile'].some(c => country.includes(c))) return 'South America'
+      if (['uk', 'france', 'germany', 'spain', 'italy'].some(c => country.includes(c))) return 'Europe'
+      if (['china', 'japan', 'korea', 'thailand', 'india'].some(c => country.includes(c))) return 'Asia'
+      if (['egypt', 'kenya', 'south africa'].some(c => country.includes(c))) return 'Africa'
+      if (['australia', 'new zealand'].some(c => country.includes(c))) return 'Oceania'
+      return 'Other'
+    }))
+
+    const totalPhotos = entriesData.reduce((sum, entry) => sum + (entry.mediaUrls?.length || 0), 0)
+
+    const updatedStats = {
+      entries: entriesData.length,
+      countries: countries.size,
+      continents: continents.size,
+      badges: profile?.badges?.length || 0,
+      totalPhotos
+    }
+
+    try {
+      const profileRef = doc(db, "profiles", user.uid)
+      await updateDoc(profileRef, { stats: updatedStats })
+      
+      setProfile(prev => prev ? { ...prev, stats: updatedStats } : null)
+    } catch (error) {
+      console.error('Error updating profile stats:', error)
+    }
+  }, [user, profile])
 
   useEffect(() => {
     if (!user) return
@@ -122,43 +158,7 @@ export default function ProfilePage() {
     }
 
     loadProfileData()
-  }, [user])
-
-  const updateProfileStats = async (entriesData: Entry[]) => {
-    if (!user) return
-
-    const countries = new Set(entriesData.map(entry => entry.country))
-    const continents = new Set(entriesData.map(entry => {
-      // Simple continent mapping - you might want to use a more comprehensive mapping
-      const country = entry.country.toLowerCase()
-      if (['usa', 'canada', 'mexico'].some(c => country.includes(c))) return 'North America'
-      if (['brazil', 'argentina', 'chile'].some(c => country.includes(c))) return 'South America'
-      if (['uk', 'france', 'germany', 'spain', 'italy'].some(c => country.includes(c))) return 'Europe'
-      if (['china', 'japan', 'korea', 'thailand', 'india'].some(c => country.includes(c))) return 'Asia'
-      if (['egypt', 'kenya', 'south africa'].some(c => country.includes(c))) return 'Africa'
-      if (['australia', 'new zealand'].some(c => country.includes(c))) return 'Oceania'
-      return 'Other'
-    }))
-
-    const totalPhotos = entriesData.reduce((sum, entry) => sum + (entry.mediaUrls?.length || 0), 0)
-
-    const updatedStats = {
-      entries: entriesData.length,
-      countries: countries.size,
-      continents: continents.size,
-      badges: profile?.badges?.length || 0,
-      totalPhotos
-    }
-
-    try {
-      const profileRef = doc(db, "profiles", user.uid)
-      await updateDoc(profileRef, { stats: updatedStats })
-      
-      setProfile(prev => prev ? { ...prev, stats: updatedStats } : null)
-    } catch (error) {
-      console.error('Error updating profile stats:', error)
-    }
-  }
+  }, [updateProfileStats, user])
 
   const uploadImage = async (file: File, path: string): Promise<string> => {
     const imageRef = ref(storage, `${path}/${user!.uid}_${Date.now()}`)

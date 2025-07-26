@@ -74,6 +74,7 @@ export function MapViewer({
               const address = result.results[0]?.formatted_address || ""
               onLocationSelect?.({ lat, lng, address })
             } catch (error) {
+              console.error("Geocoding failed:", error)
               onLocationSelect?.({ lat, lng })
             }
           })
