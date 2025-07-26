@@ -23,6 +23,7 @@ export interface UserProfile {
       countries: number
       continents: number
       badges: number
+      totalPhotos?: number
     }
     badges: Badge[]
     createdAt: string
@@ -57,7 +58,9 @@ export interface UserProfile {
     title: string
     date: string
     location: string
+    country: string
     type: "journal" | "photo" | "map" | "artifact"
+    createdAt: string
   }
   
   export interface Badge {
@@ -118,7 +121,21 @@ export interface UserProfile {
     lat: number
     lng: number
     type: "visited" | "planned" | "favorite"
+    entryId?: string // Link to related entry
     createdAt: string
+  }
+  
+  export interface Trip {
+    id: string
+    uid: string
+    name: string
+    description?: string
+    entryIds: string[]
+    startDate?: string
+    endDate?: string
+    coverImageUrl?: string
+    createdAt: string
+    updatedAt?: string
   }
   
   export interface ExportedEntry {
@@ -147,3 +164,10 @@ export interface UserProfile {
     createdAt: string
   }
   
+  export interface UserStats {
+    totalEntries: number
+    countriesVisited: number
+    continents: number
+    latestEntryDate: string | null
+    totalPhotos: number
+  }

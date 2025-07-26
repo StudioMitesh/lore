@@ -131,10 +131,8 @@ export function EntryCard({
               className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
             />
             
-            {/* Overlay with gradient */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
             
-            {/* Top badges and actions */}
             <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
               <div className="flex gap-2">
                 {isDraft && (
@@ -199,7 +197,6 @@ export function EntryCard({
               </div>
             </div>
 
-            {/* Bottom overlay content */}
             <div className="absolute bottom-3 left-3 right-3">
               <div className="flex items-center gap-2 text-white/90 text-sm mb-1">
                 <MapPin className="h-3 w-3" />
@@ -249,7 +246,6 @@ export function EntryCard({
         </Card>
       </motion.div>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>

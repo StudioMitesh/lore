@@ -3,6 +3,8 @@ import * as React from "react"
 import { motion } from "framer-motion"
 import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive, ArrowLeft, Loader2, Trash2 } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
+import { collection, doc, updateDoc, getDoc, deleteDoc, addDoc } from "firebase/firestore"
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,13 +12,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { AnimatedButton } from "@/components/ui/animated-button"
-import { GoogleMapsLoader } from "@/components/GoogleMapsLoader"
 import { MapViewer } from "@/components/MapViewer"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { entryService, type CreateEntryData } from "@/services/entryService"
-import { type Entry } from "@/lib/types"
+import { db, storage } from "@/api/firebase"
 import { useAuth } from "@/context/AuthContext"
+import { type Entry, type UserProfile } from "@/lib/types"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -36,7 +37,6 @@ interface FormData {
   coordinates: { lat: number; lng: number }
   tags: string[]
   type: "journal" | "photo" | "map" | "artifact"
-  isDraft?: boolean
 }
 
 export default function EditEntryPage() {
@@ -54,8 +54,7 @@ export default function EditEntryPage() {
     country: "",
     coordinates: { lat: 0, lng: 0 },
     tags: [],
-    type: "journal",
-    isDraft: false
+    type: "journal"
   })
   
   const [existingImages, setExistingImages] = React.useState<string[]>([])
@@ -75,13 +74,16 @@ export default function EditEntryPage() {
 
       try {
         setIsInitialLoading(true)
-        const entryData = await entryService.getEntry(entryId)
+        const entryRef = doc(db, "entries", entryId)
+        const entrySnap = await getDoc(entryRef)
         
-        if (!entryData) {
+        if (!entrySnap.exists()) {
           toast.error("Entry not found")
           navigate('/dashboard')
           return
         }
+
+        const entryData = { id: entrySnap.id, ...entrySnap.data() } as Entry
 
         if (entryData.uid !== user.uid) {
           toast.error("You don't have permission to edit this entry")
@@ -98,8 +100,7 @@ export default function EditEntryPage() {
           country: entryData.country,
           coordinates: entryData.coordinates,
           tags: entryData.tags || [],
-          type: entryData.type,
-          isDraft: entryData.isDraft || false
+          type: entryData.type
         })
         
         setExistingImages(entryData.mediaUrls || [])
@@ -187,6 +188,68 @@ export default function EditEntryPage() {
     toast.success("Location updated successfully!")
   }
 
+  const uploadImages = async (images: File[]): Promise<string[]> => {
+    if (images.length === 0) return []
+
+    const uploadPromises = images.map(async (image, index) => {
+      const imageRef = ref(storage, `entries/${user!.uid}/${Date.now()}_${index}_${image.name}`)
+      await uploadBytes(imageRef, image)
+      return await getDownloadURL(imageRef)
+    })
+
+    return await Promise.all(uploadPromises)
+  }
+
+  const deleteRemovedImages = async (imageUrls: string[]) => {
+    if (imageUrls.length === 0) return
+
+    const deletePromises = imageUrls.map(async (url) => {
+      try {
+        // Extract the path from the URL to create a reference
+        const imageRef = ref(storage, url)
+        await deleteObject(imageRef)
+      } catch (error) {
+        console.warn('Failed to delete image:', url, error)
+        // Don't throw error as this is not critical
+      }
+    })
+
+    await Promise.allSettled(deletePromises)
+  }
+
+  const updateUserStats = async (updatedEntry: Entry, originalEntry: Entry) => {
+    if (!user) return
+
+    try {
+      const profileRef = doc(db, "profiles", user.uid)
+      const profileSnap = await getDoc(profileRef)
+      
+      if (profileSnap.exists()) {
+        const profile = profileSnap.data() as UserProfile
+        
+        // Calculate photo count difference
+        const originalPhotoCount = originalEntry.mediaUrls?.length || 0
+        const newPhotoCount = updatedEntry.mediaUrls?.length || 0
+        const photoDifference = newPhotoCount - originalPhotoCount
+        
+        const updatedStats = {
+          ...profile.stats,
+          totalPhotos: Math.max(0, (profile.stats.totalPhotos || 0) + photoDifference)
+        }
+
+        // If country changed, we might need to recalculate countries/continents
+        // For simplicity, we'll just update the total photos here
+        await updateDoc(profileRef, { 
+          stats: updatedStats,
+          updatedAt: new Date().toISOString()
+        })
+      }
+    } catch (error) {
+      console.error('Error updating user stats:', error)
+      // Don't throw error as this is not critical to entry update
+    }
+  }
+
   const validateForm = (): boolean => {
     if (!formData.title.trim()) {
       toast.error("Please enter a title")
@@ -198,6 +261,10 @@ export default function EditEntryPage() {
     }
     if (!formData.location.trim()) {
       toast.error("Please enter a location")
+      return false
+    }
+    if (!locationSelected && (formData.coordinates.lat === 0 && formData.coordinates.lng === 0)) {
+      toast.error("Please select a location on the map")
       return false
     }
     return true
@@ -213,12 +280,81 @@ export default function EditEntryPage() {
 
     setIsLoading(true)
     try {
-      const updateData: Partial<CreateEntryData> = {
-        ...formData,
-        isDraft
+      // Upload new images
+      const newMediaUrls = await uploadImages(newImages)
+      
+      // Combine existing images (not removed) with new images
+      const finalMediaUrls = [...existingImages, ...newMediaUrls]
+
+      // Delete removed images from storage
+      await deleteRemovedImages(removedImageUrls)
+
+      // Update entry data
+      const updatedEntryData: Partial<Entry> = {
+        title: formData.title,
+        content: formData.content,
+        date: formData.date,
+        location: formData.location,
+        country: formData.country,
+        coordinates: formData.coordinates,
+        mediaUrls: finalMediaUrls,
+        tags: formData.tags,
+        type: formData.type,
+        isDraft,
+        updatedAt: new Date().toISOString()
       }
 
-      await entryService.updateEntry(entry.id, updateData, newImages)
+      // Update in Firestore
+      const entryRef = doc(db, "entries", entry.id)
+      await updateDoc(entryRef, updatedEntryData)
+
+      const updatedEntry: Entry = {
+        ...entry,
+        ...updatedEntryData
+      } as Entry
+
+      // Update user stats
+      await updateUserStats(updatedEntry, entry)
+
+      // Update timeline event if not a draft
+      if (!isDraft) {
+        // You might want to update or recreate the timeline event
+        // For now, we'll just create a new one if it doesn't exist
+        try {
+          await addDoc(collection(db, "timelineEvents"), {
+            id: entry.id,
+            uid: user.uid,
+            title: formData.title,
+            date: formData.date,
+            location: formData.location,
+            country: formData.country,
+            type: formData.type,
+            createdAt: entry.createdAt,
+            updatedAt: new Date().toISOString()
+          })
+        } catch (error) {
+          // Timeline event might already exist, that's okay
+          console.log('Timeline event may already exist')
+        }
+      }
+
+      // Update map location
+      if (formData.coordinates.lat !== 0 || formData.coordinates.lng !== 0) {
+        try {
+          await addDoc(collection(db, "mapLocations"), {
+            uid: user.uid,
+            name: formData.location,
+            lat: formData.coordinates.lat,
+            lng: formData.coordinates.lng,
+            type: "visited",
+            entryId: entry.id,
+            updatedAt: new Date().toISOString()
+          })
+        } catch (error) {
+          // Map location might already exist, that's okay
+          console.log('Map location may already exist')
+        }
+      }
       
       toast.success(isDraft ? "Entry saved as draft!" : "Entry updated successfully!")
       navigate('/dashboard')
@@ -235,7 +371,16 @@ export default function EditEntryPage() {
 
     setIsDeleting(true)
     try {
-      await entryService.deleteEntry(entry.id)
+      // Delete all images from storage
+      const allImages = [...existingImages, ...removedImageUrls]
+      await deleteRemovedImages(allImages)
+
+      // Delete entry from Firestore
+      await deleteDoc(doc(db, "entries", entry.id))
+
+      // You might also want to clean up timeline events and map locations
+      // This would require querying and deleting related documents
+
       toast.success("Entry deleted successfully")
       navigate('/dashboard')
     } catch (error) {
@@ -301,7 +446,6 @@ export default function EditEntryPage() {
 
   return (
     <div className="min-h-screen flex flex-col parchment-texture">
-      <GoogleMapsLoader />
       <Navbar />
       
       <main className="flex-1 pt-24 pb-16">
@@ -363,7 +507,6 @@ export default function EditEntryPage() {
           </div>
 
           <div className="space-y-8">
-            {/* Entry Type & Basic Details */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
@@ -467,7 +610,6 @@ export default function EditEntryPage() {
               </CardContent>
             </Card>
 
-            {/* Story Content */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown">Your Story *</CardTitle>
@@ -486,7 +628,6 @@ export default function EditEntryPage() {
               </CardContent>
             </Card>
 
-            {/* Tags */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
@@ -534,7 +675,6 @@ export default function EditEntryPage() {
               </CardContent>
             </Card>
 
-            {/* Photos */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-xl text-deepbrown">Photos</CardTitle>
@@ -561,7 +701,6 @@ export default function EditEntryPage() {
               <CardContent>
                 {(existingImages.length > 0 || newImagePreviewUrls.length > 0) ? (
                   <div className="space-y-6">
-                    {/* Existing Images */}
                     {existingImages.length > 0 && (
                       <div>
                         <h4 className="text-sm font-medium text-deepbrown mb-3">Current Photos</h4>
@@ -596,7 +735,6 @@ export default function EditEntryPage() {
                       </div>
                     )}
 
-                    {/* New Images */}
                     {newImagePreviewUrls.length > 0 && (
                       <div>
                         <h4 className="text-sm font-medium text-deepbrown mb-3">New Photos</h4>
@@ -643,7 +781,6 @@ export default function EditEntryPage() {
               </CardContent>
             </Card>
 
-            {/* Interactive Map */}
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown">Map Location *</CardTitle>
@@ -677,7 +814,6 @@ export default function EditEntryPage() {
               </CardContent>
             </Card>
 
-            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row justify-between gap-4 pt-6 border-t border-gold/20">
               <Button 
                 variant="outline" 
@@ -731,7 +867,6 @@ export default function EditEntryPage() {
         </div>
       </main>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>

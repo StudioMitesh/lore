@@ -3,6 +3,8 @@
 import * as React from "react"
 import { motion } from "framer-motion"
 import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive } from "lucide-react"
+import { collection, addDoc, doc, updateDoc, getDoc } from "firebase/firestore"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,12 +12,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { AnimatedButton } from "@/components/ui/animated-button"
-import { GoogleMapsLoader } from "@/components/GoogleMapsLoader"
 import { MapViewer } from "@/components/MapViewer"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { entryService, type CreateEntryData } from "@/services/entryService"
+import { db, storage } from "@/api/firebase"
 import { useAuth } from "@/context/AuthContext"
+import { type Entry, type UserProfile } from "@/lib/types"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
 
@@ -114,6 +116,64 @@ export default function NewEntryPage() {
     toast.success("Location set successfully!")
   }
 
+  const uploadImages = async (images: File[]): Promise<string[]> => {
+    if (images.length === 0) return []
+
+    const uploadPromises = images.map(async (image, index) => {
+      const imageRef = ref(storage, `entries/${user!.uid}/${Date.now()}_${index}_${image.name}`)
+      await uploadBytes(imageRef, image)
+      return await getDownloadURL(imageRef)
+    })
+
+    return await Promise.all(uploadPromises)
+  }
+
+  const updateUserStats = async (newEntry: Entry) => {
+    if (!user) return
+
+    try {
+      const profileRef = doc(db, "profiles", user.uid)
+      const profileSnap = await getDoc(profileRef)
+      
+      if (profileSnap.exists()) {
+        const profile = profileSnap.data() as UserProfile
+        
+        // Get all user entries to calculate stats
+        // This is a simplified approach - in a real app you might want to maintain counters
+        const countries = new Set([profile.stats.countries, newEntry.country].filter(Boolean))
+        const continents = new Set([profile.stats.continents, getContinent(newEntry.country)].filter(Boolean))
+        
+        const updatedStats = {
+          ...profile.stats,
+          entries: profile.stats.entries + 1,
+          countries: countries.size,
+          continents: continents.size,
+          totalPhotos: (profile.stats.totalPhotos || 0) + newEntry.mediaUrls.length
+        }
+
+        await updateDoc(profileRef, { 
+          stats: updatedStats,
+          updatedAt: new Date().toISOString()
+        })
+      }
+    } catch (error) {
+      console.error('Error updating user stats:', error)
+      // Don't throw error as this is not critical to entry creation
+    }
+  }
+
+  const getContinent = (country: string): string => {
+    // Simple continent mapping - you might want to use a more comprehensive mapping
+    const countryLower = country.toLowerCase()
+    if (['usa', 'united states', 'canada', 'mexico'].some(c => countryLower.includes(c))) return 'North America'
+    if (['brazil', 'argentina', 'chile', 'peru', 'colombia'].some(c => countryLower.includes(c))) return 'South America'
+    if (['uk', 'united kingdom', 'france', 'germany', 'spain', 'italy', 'netherlands'].some(c => countryLower.includes(c))) return 'Europe'
+    if (['china', 'japan', 'korea', 'thailand', 'india', 'vietnam', 'singapore'].some(c => countryLower.includes(c))) return 'Asia'
+    if (['egypt', 'kenya', 'south africa', 'morocco', 'nigeria'].some(c => countryLower.includes(c))) return 'Africa'
+    if (['australia', 'new zealand', 'fiji'].some(c => countryLower.includes(c))) return 'Oceania'
+    return 'Other'
+  }
+
   const validateForm = (): boolean => {
     if (!formData.title.trim()) {
       toast.error("Please enter a title")
@@ -144,12 +204,65 @@ export default function NewEntryPage() {
 
     setIsLoading(true)
     try {
-      const entryData: CreateEntryData = {
-        ...formData,
-        isDraft
+      // Upload images first
+      const mediaUrls = await uploadImages(images)
+
+      // Create entry data
+      const entryData: Omit<Entry, 'id'> = {
+        uid: user.uid,
+        title: formData.title,
+        content: formData.content,
+        date: formData.date,
+        location: formData.location,
+        country: formData.country,
+        coordinates: formData.coordinates,
+        mediaUrls,
+        tags: formData.tags,
+        type: formData.type,
+        createdAt: new Date().toISOString(),
+        isDraft,
+        isFavorite: false
       }
 
-      const entryId = await entryService.createEntry(user.uid, entryData, images)
+      // Save to Firestore
+      const docRef = await addDoc(collection(db, "entries"), entryData)
+      
+      const newEntry: Entry = {
+        id: docRef.id,
+        ...entryData
+      }
+
+      // Update user stats if not a draft
+      if (!isDraft) {
+        await updateUserStats(newEntry)
+      }
+
+      // Create timeline event if not a draft
+      if (!isDraft) {
+        await addDoc(collection(db, "timelineEvents"), {
+          id: docRef.id,
+          uid: user.uid,
+          title: formData.title,
+          date: formData.date,
+          location: formData.location,
+          country: formData.country,
+          type: formData.type,
+          createdAt: new Date().toISOString()
+        })
+      }
+
+      // Add to map locations if coordinates are valid
+      if (formData.coordinates.lat !== 0 || formData.coordinates.lng !== 0) {
+        await addDoc(collection(db, "mapLocations"), {
+          uid: user.uid,
+          name: formData.location,
+          lat: formData.coordinates.lat,
+          lng: formData.coordinates.lng,
+          type: "visited",
+          entryId: docRef.id,
+          createdAt: new Date().toISOString()
+        })
+      }
       
       toast.success(isDraft ? "Entry saved as draft!" : "Entry saved successfully!")
       navigate('/dashboard')
@@ -175,11 +288,10 @@ export default function NewEntryPage() {
     return () => {
       imagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
     }
-  }, [])
+  }, [imagePreviewUrls])
 
   return (
     <div className="min-h-screen flex flex-col parchment-texture">
-      <GoogleMapsLoader />
       <Navbar />
       
       <main className="flex-1 pt-24 pb-16">

@@ -6,6 +6,7 @@ import { Search, Layers, Filter, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { loadGoogleMapsApi } from "@/api/googleMapsLoader"
 
 interface Location {
   id: string
@@ -43,23 +44,10 @@ export function MapViewer({
   const [searchValue, setSearchValue] = useState("")
   const [isLoading, setIsLoading] = useState(true)
 
-  const waitForGoogleMaps = () => {
-    return new Promise<void>((resolve) => {
-      const checkGoogleMaps = () => {
-        if (window.google?.maps) {
-          resolve()
-        } else {
-          setTimeout(checkGoogleMaps, 100)
-        }
-      }
-      checkGoogleMaps()
-    })
-  }
-
   useEffect(() => {
     const initializeMap = async () => {
       try {
-        await waitForGoogleMaps()
+        await loadGoogleMapsApi()
         
         const { Map } = await window.google.maps.importLibrary("maps")
         const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker")
@@ -69,24 +57,8 @@ export function MapViewer({
         const map = new Map(mapRef.current, {
           center,
           zoom,
+          mapId: "4578ddca5379c217baab8a20",
           disableDefaultUI: true,
-          styles: [
-            {
-              featureType: "all",
-              elementType: "geometry.fill",
-              stylers: [{ color: "#f4f1e8" }]
-            },
-            {
-              featureType: "water",
-              elementType: "geometry.fill",
-              stylers: [{ color: "#7ba7ab" }]
-            },
-            {
-              featureType: "road",
-              elementType: "geometry.stroke",
-              stylers: [{ color: "#d4af37" }, { weight: 0.5 }]
-            }
-          ]
         })
 
         mapInstanceRef.current = map
@@ -150,7 +122,7 @@ export function MapViewer({
     if (!searchValue.trim() || !mapInstanceRef.current) return
 
     try {
-      await waitForGoogleMaps()
+      await loadGoogleMapsApi()
       const geocoder = new window.google.maps.Geocoder()
       
       geocoder.geocode({ address: searchValue }, (results: any, status: any) => {
