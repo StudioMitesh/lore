@@ -1,24 +1,41 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/api/firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/useAuth';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { auth } from '../api/firebase';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast.error('Please enter both email and password');
+      return;
+    }
+    setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      toast.success('Welcome back!');
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message);
+      console.error('Login error:', err);
+      toast.error(err.message || 'Failed to login');
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center parchment-texture">
@@ -40,9 +57,28 @@ const LoginPage = () => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-        <Button onClick={(e) => handleLogin(e)} className="w-full">Login</Button>
-        <Button onClick={() => navigate("/register")} className="w-full">Need to Register?</Button>
+        <Button 
+          onClick={(e) => handleLogin(e)} 
+          className="w-full mb-3" 
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Logging in...
+            </>
+          ) : (
+            'Login'
+          )}
+        </Button>
+        <Button 
+          onClick={() => navigate("/register")} 
+          variant="outline" 
+          className="w-full"
+          disabled={isLoading}
+        >
+          Need to Register?
+        </Button>
       </form>
     </div>
   );

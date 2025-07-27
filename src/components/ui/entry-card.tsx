@@ -119,19 +119,19 @@ export function EntryCard({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: index * 0.1 }}
-        whileHover={{ y: -5 }}
+        whileHover={{ y: -5, scale: 1.02 }}
         className="group cursor-pointer"
         onClick={handleCardClick}
       >
-        <Card className="border-gold/20 bg-parchment-light hover:shadow-lg transition-all duration-300 overflow-hidden">
+        <Card className="border-gold/20 bg-parchment-light hover:shadow-xl hover:border-gold/30 transition-all duration-300 overflow-hidden relative group/card">
           <div className="relative">
             <img
               src={imageUrl}
               alt={title}
-              className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-105"
             />
             
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-90 transition-opacity duration-300 group-hover/card:opacity-100" />
             
             <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
               <div className="flex gap-2">
@@ -152,7 +152,7 @@ export function EntryCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white"
+                  className="h-8 w-8 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white transition-colors duration-200"
                   onClick={handleFavorite}
                 >
                   <Heart 
@@ -209,7 +209,7 @@ export function EntryCard({
             </div>
           </div>
 
-          <CardContent className="p-4">
+          <CardContent className="p-5">
             <h3 className="font-display text-lg font-semibold text-deepbrown mb-2 line-clamp-1">
               {title}
             </h3>
@@ -217,7 +217,7 @@ export function EntryCard({
               {excerpt}
             </p>
             
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-gold/10">
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gold/10">
               <div className="flex items-center gap-2 text-xs text-deepbrown/50">
                 {isDraft ? "Draft created" : "Published"} {format(date, "MMM d")}
               </div>

@@ -295,7 +295,7 @@ export default function NewEntryPage() {
       <Navbar />
       
       <main className="flex-1 pt-24 pb-16">
-        <div className="container max-w-4xl">
+        <div className="container max-w-4xl mx-auto px-4">
           <div className="flex justify-between items-center mb-8">
             <div>
               <h1 className="font-display text-3xl font-bold text-deepbrown">Create New Entry</h1>
@@ -348,10 +348,10 @@ export default function NewEntryPage() {
                     value={formData.type} 
                     onValueChange={(value: any) => handleInputChange('type', value)}
                   >
-                    <SelectTrigger className="bg-parchment border-gold/30">
+                    <SelectTrigger className="bg-parchment border-gold/30 w-full">
                       <SelectValue placeholder="Select entry type" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-parchment border-gold/30 shadow-lg">
                       <SelectItem value="journal">
                         <div className="flex items-center gap-2">
                           <BookOpen className="h-4 w-4" />

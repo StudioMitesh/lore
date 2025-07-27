@@ -173,7 +173,7 @@ export default function Dashboard() {
     <div className="min-h-screen flex flex-col parchment-texture">
       <Navbar />
       <main className="flex-1 pt-24 pb-16">
-        <div className="container">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
               <h1 className="font-display text-3xl font-bold text-deepbrown">Your Adventures</h1>
@@ -196,8 +196,8 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-8">
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
+              <div className="flex flex-col sm:flex-row gap-4 w-full">
+                <div className="relative flex-1 w-full sm:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
                   <Input 
                     placeholder="Search entries..." 
@@ -233,7 +233,7 @@ export default function Dashboard() {
               </div>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="bg-parchment-dark border border-gold/20">
+                <TabsList className="bg-parchment-dark border border-gold/20 w-full sm:w-auto flex">
                   <TabsTrigger value="all">
                     All Entries ({entries.length})
                   </TabsTrigger>
@@ -250,7 +250,7 @@ export default function Dashboard() {
 
                 <TabsContent value="all" className="mt-6">
                   {entries.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {entries.map((entry, index) => (
                         <EntryCard
                           key={entry.id}

@@ -51,12 +51,12 @@ export function Navbar() {
         isScrolled ? "bg-parchment/95 backdrop-blur-sm shadow-md py-2" : "bg-transparent py-4",
     )}
     >
-    <div className="container mx-auto flex flex-row items-center justify-between px-4">
-        <Link to={"/"} className="flex items-center gap-2">
+    <div className="container mx-auto flex flex-row items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link to={"/"} className="flex items-center gap-2 transition-colors hover:text-gold">
         <span className="font-display text-xl font-medium text-deepbrown">Lore</span>
         </Link>
 
-        <nav className="hidden md:flex flex-row items-center gap-6">
+        <nav className="hidden md:flex flex-row items-center gap-8">
         {navItems.map((item) => {
             const isActive = pathname === item.href
 
@@ -94,12 +94,12 @@ export function Navbar() {
 
         <Sheet>
         <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden">
+            <Button variant="ghost" size="icon" className="md:hidden hover:bg-gold/10">
             <Menu className="h-6 w-6" />
             <span className="sr-only">Toggle menu</span>
             </Button>
         </SheetTrigger>
-        <SheetContent side="right" className="bg-parchment">
+        <SheetContent side="right" className="bg-parchment/95 backdrop-blur-sm border-l border-gold/20">
             <nav className="flex flex-col gap-4 mt-8">
             {navItems.map((item) => {
                 const isActive = pathname === item.href

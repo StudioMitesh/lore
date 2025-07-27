@@ -1,26 +1,57 @@
 import { useState } from 'react'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/api/firebase'
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { doc, setDoc } from 'firebase/firestore'
-import { db } from '@/api/firebase'
 import { type UserProfile } from '@/lib/types'
 import { formatISO } from 'date-fns'
+import { useAuth } from '@/context/useAuth'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { auth, db } from '../api/firebase'
 
 const RegisterPage = () => {
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const validateForm = () => {
+    if (!username || !email || !password) {
+      toast.error('Please fill in all fields')
+      return false
+    }
+    if (username.length < 3) {
+      toast.error('Username must be at least 3 characters long')
+      return false
+    }
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters long')
+      return false
+    }
+    if (!email.includes('@')) {
+      toast.error('Please enter a valid email address')
+      return false
+    }
+    return true
+  }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (!validateForm()) return
+
+    setIsLoading(true)
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
+
+      // Update user profile with username
+      await updateProfile(user, {
+        displayName: username
+      })
 
       const timestamp = formatISO(new Date())
 
@@ -48,7 +79,8 @@ const RegisterPage = () => {
           entries: 0,
           countries: 0,
           continents: 0,
-          badges: 0
+          badges: 0,
+          totalPhotos: 0
         },
         badges: [],
         createdAt: timestamp,
@@ -57,11 +89,13 @@ const RegisterPage = () => {
       }
 
       await setDoc(doc(db, 'profiles', user.uid), newProfile)
-
+      toast.success('Registration successful!')
       navigate('/dashboard')
     } catch (err: any) {
-      console.error(err)
-      setError(err.message)
+      console.error('Registration error:', err)
+      toast.error(err.message || 'Failed to register')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -93,10 +127,30 @@ const RegisterPage = () => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
-        <Button onClick={(e) => handleRegister(e)} className="w-full">Register</Button>
-        <Button onClick={() => navigate("/login")} className="w-full" variant="ghost">Need to Login instead?</Button>
+
+        <Button 
+          onClick={(e) => handleRegister(e)} 
+          className="w-full mb-3" 
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating account...
+            </>
+          ) : (
+            'Register'
+          )}
+        </Button>
+        <Button 
+          onClick={() => navigate("/login")} 
+          className="w-full" 
+          variant="outline"
+          disabled={isLoading}
+        >
+          Need to Login instead?
+        </Button>
       </form>
     </div>
   )

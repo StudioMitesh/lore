@@ -10,6 +10,7 @@ import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import EditEntryPage from '@/pages/EditEntryPage';
 import { useAuth } from '@/context/useAuth';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
@@ -48,11 +49,56 @@ const AppRoutes = () => {
         <Route path="/" element={<PageWrapper>{user ? <LandingPage /> : <StartPage />}</PageWrapper>} />
         <Route path="/login" element={<PageWrapper><LoginPage /></PageWrapper>} />
         <Route path="/register" element={<PageWrapper><RegisterPage /></PageWrapper>} />
-        <Route path="/dashboard" element={<PageWrapper><Dashboard /></PageWrapper>} />
-        <Route path="/map" element={<PageWrapper><MapPage /></PageWrapper>} />
-        <Route path="/new-entry" element={<PageWrapper><NewEntryPage /></PageWrapper>} />
-        <Route path="/edit-entry/:id" element={<PageWrapper><EditEntryPage /></PageWrapper>} />
-        <Route path="/profile" element={<PageWrapper><ProfilePage /></PageWrapper>} />
+        <Route
+          path="/dashboard"
+          element={
+            <PageWrapper>
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/map"
+          element={
+            <PageWrapper>
+              <ProtectedRoute>
+                <MapPage />
+              </ProtectedRoute>
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/new-entry"
+          element={
+            <PageWrapper>
+              <ProtectedRoute>
+                <NewEntryPage />
+              </ProtectedRoute>
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/edit-entry/:id"
+          element={
+            <PageWrapper>
+              <ProtectedRoute>
+                <EditEntryPage />
+              </ProtectedRoute>
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <PageWrapper>
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            </PageWrapper>
+          }
+        />
       </Routes>
     </AnimatePresence>
   );

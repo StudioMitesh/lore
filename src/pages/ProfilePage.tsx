@@ -73,21 +73,29 @@ export default function ProfilePage() {
   }, [user, profile])
 
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
+
+    let unsubscribeEntries: (() => void) | undefined
 
     const loadProfileData = async () => {
       try {
         setIsLoading(true)
+        console.log('Loading profile data for user:', user.uid)
         
         // Load or create profile
         const profileRef = doc(db, "profiles", user.uid)
         const profileSnap = await getDoc(profileRef)
 
         if (profileSnap.exists()) {
+          console.log('Profile exists, loading data')
           const profileData = profileSnap.data() as UserProfile
           setProfile(profileData)
           setFormData(profileData)
         } else {
+          console.log('Creating new profile')
           // Create default profile
           const defaultProfile: UserProfile = {
             uid: user.uid,
@@ -114,6 +122,7 @@ export default function ProfilePage() {
           setFormData(defaultProfile)
         }
 
+        console.log('Loading entries')
         // Load entries
         const entriesQuery = query(
           collection(db, "entries"),
@@ -121,7 +130,8 @@ export default function ProfilePage() {
           where("isDraft", "!=", true)
         )
 
-        const unsubscribeEntries = onSnapshot(entriesQuery, (snapshot) => {
+        unsubscribeEntries = onSnapshot(entriesQuery, (snapshot) => {
+          console.log('Entries snapshot received:', snapshot.size, 'documents')
           const entriesData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
@@ -145,9 +155,10 @@ export default function ProfilePage() {
           
           // Update profile stats
           updateProfileStats(entriesData)
+        }, (error) => {
+          console.error('Error in entries snapshot:', error)
+          toast.error('Failed to load entries')
         })
-
-        return unsubscribeEntries
 
       } catch (error) {
         console.error('Error loading profile data:', error)
@@ -158,6 +169,14 @@ export default function ProfilePage() {
     }
 
     loadProfileData()
+
+    // Cleanup function
+    return () => {
+      if (unsubscribeEntries) {
+        console.log('Cleaning up entries subscription')
+        unsubscribeEntries()
+      }
+    }
   }, [updateProfileStats, user])
 
   const uploadImage = async (file: File, path: string): Promise<string> => {

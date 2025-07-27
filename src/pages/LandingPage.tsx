@@ -6,12 +6,12 @@ import { AnimatedButton } from "@/components/ui/animated-button"
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen flex flex-col parchment-texture">
+    <div className="min-h-screen flex flex-col parchment-texture relative overflow-hidden">
       <Navbar />
 
       <main className="flex-1">
         <section className="relative pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden">
-          <div className="container relative z-10">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="max-w-3xl mx-auto text-center">
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
                 <h1 className="font-display text-4xl md:text-6xl font-bold text-deepbrown mb-6">
@@ -72,7 +72,7 @@ export default function LandingPage() {
         </section>
 
         <section className="py-16 md:py-24 bg-parchment-dark">
-          <div className="container">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="font-display text-3xl md:text-4xl font-bold text-deepbrown mb-4">
                 Capture Your Adventures
@@ -121,7 +121,7 @@ export default function LandingPage() {
         </section>
 
         <section className="py-16 md:py-24">
-          <div className="container">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -198,7 +198,7 @@ export default function LandingPage() {
         </section>
 
         <section className="py-16 md:py-24 bg-forest text-white">
-          <div className="container">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto text-center">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
