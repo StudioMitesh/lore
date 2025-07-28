@@ -4,10 +4,7 @@
   functions = "netlify/functions"
 
 [dev]
-  command = "vite --host"
-  targetPort = 5173
-  port = 8888
-  publish = "dist"
+  framework = "#auto"
   functions = "netlify/functions"
 
 # Handle client-side routing (for React Router)

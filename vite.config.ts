@@ -13,13 +13,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true,
-    middlewareMode: false
+    host: true
   },
-  assetsInclude: ['**/*.html'],
-  esbuild: {
-    loader: 'tsx',
-    include: /src\/.*\.[tj]sx?$/,
-    exclude: ['**/*.html', '**/index.html']
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets'
   }
 })
