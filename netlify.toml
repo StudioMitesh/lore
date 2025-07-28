@@ -1,0 +1,17 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+  functions = "netlify/functions"
+
+[dev]
+  command = "vite --host"
+  targetPort = 5173
+  port = 8888
+  publish = "dist"
+  functions = "netlify/functions"
+
+# Handle client-side routing (for React Router)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

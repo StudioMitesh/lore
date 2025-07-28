@@ -1,13 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, setDoc } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { motion } from "framer-motion"
 import { Settings, Download, Share2, Save, Upload, Loader2, MapPin, BookOpen, Camera, Map, Archive } from "lucide-react"
 
 import { db, storage } from "@/api/firebase"
-import { useAuth } from '@/context/useAuth'
+import { useAuth } from "@/context/useAuth"
 import { type UserProfile, type Entry, type TimelineEvent } from "@/lib/types"
 
 import { Navbar } from "@/components/Navbar"
@@ -36,12 +36,113 @@ export default function ProfilePage() {
   const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null)
   const [selectedCover, setSelectedCover] = useState<File | null>(null)
 
-  const updateProfileStats = useCallback(async (entriesData: Entry[]) => {
+  useEffect(() => {
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
+
+    let unsubscribeEntries: (() => void) | undefined
+
+    const loadProfileData = async () => {
+      try {
+        setIsLoading(true)
+        
+        const profileRef = doc(db, "profiles", user.uid)
+        const profileSnap = await getDoc(profileRef)
+
+        if (profileSnap.exists()) {
+          console.log('Profile exists, loading data')
+          const profileData = profileSnap.data() as UserProfile
+          setProfile(profileData)
+          setFormData(profileData)
+        } else {
+          console.log('Creating new profile')
+          const defaultProfile: UserProfile = {
+            uid: user.uid,
+            first_name: user.displayName?.split(' ')[0] || '',
+            last_name: user.displayName?.split(' ').slice(1).join(' ') || '',
+            username: user.displayName || user.email?.split('@')[0] || '',
+            email: user.email || '',
+            bio: '',
+            avatarUrl: user.photoURL || '',
+            stats: {
+              entries: 0,
+              countries: 0,
+              continents: 0,
+              badges: 0,
+              totalPhotos: 0
+            },
+            badges: [],
+            createdAt: new Date().toISOString(),
+            favorites: []
+          }
+
+          await setDoc(profileRef, defaultProfile)
+          setProfile(defaultProfile)
+          setFormData(defaultProfile)
+        }
+
+        const entriesQuery = query(
+          collection(db, "entries"),
+          where("uid", "==", user.uid),
+          where("isDraft", "!=", true)
+        )
+
+        unsubscribeEntries = onSnapshot(entriesQuery, (snapshot) => {
+          console.log('Entries snapshot received:', snapshot.size, 'documents')
+          const entriesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Entry[]
+          
+          setEntries(entriesData.slice(0, 6))
+          
+          const events: TimelineEvent[] = entriesData.map(entry => ({
+            id: entry.id,
+            uid: entry.uid,
+            title: entry.title,
+            date: entry.date,
+            location: entry.location,
+            country: entry.country,
+            type: entry.type,
+            createdAt: entry.createdAt
+          }))
+          
+          setTimelineEvents(events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))
+          
+          updateProfileStats(entriesData)
+        }, (error) => {
+          console.error('Error in entries snapshot:', error)
+          toast.error('Failed to load entries')
+        })
+
+        return unsubscribeEntries
+
+      } catch (error) {
+        console.error('Error loading profile data:', error)
+        toast.error("Failed to load profile data")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadProfileData()
+
+    return () => {
+      if (unsubscribeEntries) {
+        console.log('Cleaning up entries subscription')
+        unsubscribeEntries()
+      }
+    }
+  }, [user])
+
+  const updateProfileStats = async (entriesData: Entry[]) => {
     if (!user) return
 
     const countries = new Set(entriesData.map(entry => entry.country))
     const continents = new Set(entriesData.map(entry => {
-      // Simple continent mapping - you might want to use a more comprehensive mapping
+      // continent mapping rough solution (probably find a better way for this TODO)
       const country = entry.country.toLowerCase()
       if (['usa', 'canada', 'mexico'].some(c => country.includes(c))) return 'North America'
       if (['brazil', 'argentina', 'chile'].some(c => country.includes(c))) return 'South America'
@@ -70,114 +171,7 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Error updating profile stats:', error)
     }
-  }, [user, profile])
-
-  useEffect(() => {
-    if (!user) {
-      setIsLoading(false)
-      return
-    }
-
-    let unsubscribeEntries: (() => void) | undefined
-
-    const loadProfileData = async () => {
-      try {
-        setIsLoading(true)
-        console.log('Loading profile data for user:', user.uid)
-        
-        // Load or create profile
-        const profileRef = doc(db, "profiles", user.uid)
-        const profileSnap = await getDoc(profileRef)
-
-        if (profileSnap.exists()) {
-          console.log('Profile exists, loading data')
-          const profileData = profileSnap.data() as UserProfile
-          setProfile(profileData)
-          setFormData(profileData)
-        } else {
-          console.log('Creating new profile')
-          // Create default profile
-          const defaultProfile: UserProfile = {
-            uid: user.uid,
-            first_name: user.displayName?.split(' ')[0] || '',
-            last_name: user.displayName?.split(' ').slice(1).join(' ') || '',
-            username: user.displayName || user.email?.split('@')[0] || '',
-            email: user.email || '',
-            bio: '',
-            avatarUrl: user.photoURL || '',
-            stats: {
-              entries: 0,
-              countries: 0,
-              continents: 0,
-              badges: 0,
-              totalPhotos: 0
-            },
-            badges: [],
-            createdAt: new Date().toISOString(),
-            favorites: []
-          }
-
-          await setDoc(profileRef, defaultProfile)
-          setProfile(defaultProfile)
-          setFormData(defaultProfile)
-        }
-
-        console.log('Loading entries')
-        // Load entries
-        const entriesQuery = query(
-          collection(db, "entries"),
-          where("uid", "==", user.uid),
-          where("isDraft", "!=", true)
-        )
-
-        unsubscribeEntries = onSnapshot(entriesQuery, (snapshot) => {
-          console.log('Entries snapshot received:', snapshot.size, 'documents')
-          const entriesData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as Entry[]
-          
-          setEntries(entriesData.slice(0, 6)) // Recent entries for profile display
-          
-          // Create timeline events
-          const events: TimelineEvent[] = entriesData.map(entry => ({
-            id: entry.id,
-            uid: entry.uid,
-            title: entry.title,
-            date: entry.date,
-            location: entry.location,
-            country: entry.country,
-            type: entry.type,
-            createdAt: entry.createdAt
-          }))
-          
-          setTimelineEvents(events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))
-          
-          // Update profile stats
-          updateProfileStats(entriesData)
-        }, (error) => {
-          console.error('Error in entries snapshot:', error)
-          toast.error('Failed to load entries')
-        })
-
-      } catch (error) {
-        console.error('Error loading profile data:', error)
-        toast.error("Failed to load profile data")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadProfileData()
-
-    // Cleanup function
-    return () => {
-      if (unsubscribeEntries) {
-        console.log('Cleaning up entries subscription')
-        unsubscribeEntries()
-      }
-    }
-  }, [updateProfileStats, user])
+  }
 
   const uploadImage = async (file: File, path: string): Promise<string> => {
     const imageRef = ref(storage, `${path}/${user!.uid}_${Date.now()}`)
@@ -235,13 +229,11 @@ export default function ProfilePage() {
     try {
       const updatedFormData = { ...formData }
 
-      // Upload new avatar if selected
       if (selectedAvatar) {
         const avatarUrl = await uploadImage(selectedAvatar, 'avatars')
         updatedFormData.avatarUrl = avatarUrl
       }
 
-      // Upload new cover photo if selected
       if (selectedCover) {
         const coverUrl = await uploadImage(selectedCover, 'covers')
         updatedFormData.coverPhotoUrl = coverUrl
@@ -278,7 +270,6 @@ export default function ProfilePage() {
       const profileRef = doc(db, "profiles", user.uid)
       await updateDoc(profileRef, { favorites: updatedFavorites })
 
-      // Update entry favorite status
       const entryRef = doc(db, "entries", entryId)
       await updateDoc(entryRef, { isFavorite: !favorites.includes(entryId) })
 

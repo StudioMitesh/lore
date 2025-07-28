@@ -3,8 +3,10 @@ import { motion } from "framer-motion"
 import { ArrowRight, Map, BookOpen, Globe } from "lucide-react"
 import { Navbar } from "@/components/Navbar"
 import { AnimatedButton } from "@/components/ui/animated-button"
+import { useNavigate } from "react-router-dom"
 
 export default function LandingPage() {
+  const navigate = useNavigate()
   return (
     <div className="min-h-screen flex flex-col parchment-texture relative overflow-hidden">
       <Navbar />
@@ -23,11 +25,11 @@ export default function LandingPage() {
                   tools, and a personal travel journal.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <AnimatedButton size="lg" animationType="glow">
+                  <AnimatedButton onClick={() => navigate('/dashboard')} size="lg" animationType="glow">
                     Start Mapping
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </AnimatedButton>
-                  <AnimatedButton size="lg" variant="outline" className="border-gold/30">
+                  <AnimatedButton onClick={() => navigate('/profile')} size="lg" variant="outline" className="border-gold/30">
                     View My Lore
                   </AnimatedButton>
                 </div>

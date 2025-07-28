@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { doc, setDoc } from 'firebase/firestore'
 import { type UserProfile } from '@/lib/types'
 import { formatISO } from 'date-fns'
-import { useAuth } from '@/context/useAuth'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { auth, db } from '../api/firebase'
@@ -16,7 +15,6 @@ const RegisterPage = () => {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
-  const { user } = useAuth()
 
   const validateForm = () => {
     if (!username || !email || !password) {
@@ -48,7 +46,6 @@ const RegisterPage = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
 
-      // Update user profile with username
       await updateProfile(user, {
         displayName: username
       })

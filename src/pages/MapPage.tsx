@@ -29,27 +29,23 @@ export default function MapPage() {
   const [showTripDialog, setShowTripDialog] = React.useState(false)
   const [selectedEntries, setSelectedEntries] = React.useState<string[]>([])
   
-  // New location form
   const [newLocation, setNewLocation] = React.useState({
     name: "",
     type: "visited" as "visited" | "planned" | "favorite",
     coordinates: { lat: 0, lng: 0 }
   })
   
-  // New trip form
   const [newTrip, setNewTrip] = React.useState({
     name: "",
     description: "",
     entryIds: [] as string[]
   })
 
-  // Load user entries and map data
   React.useEffect(() => {
     if (!user) return
 
     setIsLoading(true)
 
-    // Load entries
     const entriesQuery = query(
       collection(db, "entries"),
       where("uid", "==", user.uid),
@@ -64,7 +60,6 @@ export default function MapPage() {
       setEntries(entriesData)
     })
 
-    // Load map locations
     const locationsQuery = query(
       collection(db, "mapLocations"),
       where("uid", "==", user.uid)
@@ -78,7 +73,6 @@ export default function MapPage() {
       setMapLocations(locationsData)
     })
 
-    // Load trips
     const tripsQuery = query(
       collection(db, "trips"),
       where("uid", "==", user.uid)

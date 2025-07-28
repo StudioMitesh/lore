@@ -138,8 +138,7 @@ export default function NewEntryPage() {
       if (profileSnap.exists()) {
         const profile = profileSnap.data() as UserProfile
         
-        // Get all user entries to calculate stats
-        // This is a simplified approach - in a real app you might want to maintain counters
+        // probably replace this with counters TODO
         const countries = new Set([profile.stats.countries, newEntry.country].filter(Boolean))
         const continents = new Set([profile.stats.continents, getContinent(newEntry.country)].filter(Boolean))
         
@@ -158,12 +157,11 @@ export default function NewEntryPage() {
       }
     } catch (error) {
       console.error('Error updating user stats:', error)
-      // Don't throw error as this is not critical to entry creation
     }
   }
 
   const getContinent = (country: string): string => {
-    // Simple continent mapping - you might want to use a more comprehensive mapping
+    // TODO better continent mapping probably or some better solution
     const countryLower = country.toLowerCase()
     if (['usa', 'united states', 'canada', 'mexico'].some(c => countryLower.includes(c))) return 'North America'
     if (['brazil', 'argentina', 'chile', 'peru', 'colombia'].some(c => countryLower.includes(c))) return 'South America'
@@ -204,10 +202,8 @@ export default function NewEntryPage() {
 
     setIsLoading(true)
     try {
-      // Upload images first
       const mediaUrls = await uploadImages(images)
 
-      // Create entry data
       const entryData: Omit<Entry, 'id'> = {
         uid: user.uid,
         title: formData.title,
@@ -224,7 +220,6 @@ export default function NewEntryPage() {
         isFavorite: false
       }
 
-      // Save to Firestore
       const docRef = await addDoc(collection(db, "entries"), entryData)
       
       const newEntry: Entry = {
@@ -232,12 +227,10 @@ export default function NewEntryPage() {
         ...entryData
       }
 
-      // Update user stats if not a draft
       if (!isDraft) {
         await updateUserStats(newEntry)
       }
 
-      // Create timeline event if not a draft
       if (!isDraft) {
         await addDoc(collection(db, "timelineEvents"), {
           id: docRef.id,
@@ -251,7 +244,6 @@ export default function NewEntryPage() {
         })
       }
 
-      // Add to map locations if coordinates are valid
       if (formData.coordinates.lat !== 0 || formData.coordinates.lng !== 0) {
         await addDoc(collection(db, "mapLocations"), {
           uid: user.uid,

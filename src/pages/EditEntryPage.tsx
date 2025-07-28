@@ -125,7 +125,6 @@ export default function EditEntryPage() {
     const files = Array.from(event.target.files || [])
     if (files.length === 0) return
 
-    // Validate file types and sizes
     const validFiles = files.filter(file => {
       const isValidType = file.type.startsWith('image/')
       const isValidSize = file.size <= 10 * 1024 * 1024 // 10MB limit
@@ -145,7 +144,6 @@ export default function EditEntryPage() {
 
     setNewImages(prev => [...prev, ...validFiles])
     
-    // Create preview URLs
     const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file))
     setNewImagePreviewUrls(prev => [...prev, ...newPreviewUrls])
   }
@@ -156,7 +154,6 @@ export default function EditEntryPage() {
   }
 
   const handleRemoveNewImage = (index: number) => {
-    // Revoke the object URL to prevent memory leaks
     URL.revokeObjectURL(newImagePreviewUrls[index])
     
     setNewImages(prev => prev.filter((_, i) => i !== index))
@@ -205,12 +202,10 @@ export default function EditEntryPage() {
 
     const deletePromises = imageUrls.map(async (url) => {
       try {
-        // Extract the path from the URL to create a reference
         const imageRef = ref(storage, url)
         await deleteObject(imageRef)
       } catch (error) {
         console.warn('Failed to delete image:', url, error)
-        // Don't throw error as this is not critical
       }
     })
 
@@ -227,7 +222,6 @@ export default function EditEntryPage() {
       if (profileSnap.exists()) {
         const profile = profileSnap.data() as UserProfile
         
-        // Calculate photo count difference
         const originalPhotoCount = originalEntry.mediaUrls?.length || 0
         const newPhotoCount = updatedEntry.mediaUrls?.length || 0
         const photoDifference = newPhotoCount - originalPhotoCount
@@ -237,8 +231,6 @@ export default function EditEntryPage() {
           totalPhotos: Math.max(0, (profile.stats.totalPhotos || 0) + photoDifference)
         }
 
-        // If country changed, we might need to recalculate countries/continents
-        // For simplicity, we'll just update the total photos here
         await updateDoc(profileRef, { 
           stats: updatedStats,
           updatedAt: new Date().toISOString()
@@ -246,7 +238,6 @@ export default function EditEntryPage() {
       }
     } catch (error) {
       console.error('Error updating user stats:', error)
-      // Don't throw error as this is not critical to entry update
     }
   }
 
@@ -280,16 +271,9 @@ export default function EditEntryPage() {
 
     setIsLoading(true)
     try {
-      // Upload new images
       const newMediaUrls = await uploadImages(newImages)
-      
-      // Combine existing images (not removed) with new images
       const finalMediaUrls = [...existingImages, ...newMediaUrls]
-
-      // Delete removed images from storage
       await deleteRemovedImages(removedImageUrls)
-
-      // Update entry data
       const updatedEntryData: Partial<Entry> = {
         title: formData.title,
         content: formData.content,
@@ -304,7 +288,6 @@ export default function EditEntryPage() {
         updatedAt: new Date().toISOString()
       }
 
-      // Update in Firestore
       const entryRef = doc(db, "entries", entry.id)
       await updateDoc(entryRef, updatedEntryData)
 
@@ -313,13 +296,9 @@ export default function EditEntryPage() {
         ...updatedEntryData
       } as Entry
 
-      // Update user stats
       await updateUserStats(updatedEntry, entry)
 
-      // Update timeline event if not a draft
       if (!isDraft) {
-        // You might want to update or recreate the timeline event
-        // For now, we'll just create a new one if it doesn't exist
         try {
           await addDoc(collection(db, "timelineEvents"), {
             id: entry.id,
@@ -337,7 +316,6 @@ export default function EditEntryPage() {
         }
       }
 
-      // Update map location
       if (formData.coordinates.lat !== 0 || formData.coordinates.lng !== 0) {
         try {
           await addDoc(collection(db, "mapLocations"), {
@@ -369,15 +347,9 @@ export default function EditEntryPage() {
 
     setIsDeleting(true)
     try {
-      // Delete all images from storage
       const allImages = [...existingImages, ...removedImageUrls]
       await deleteRemovedImages(allImages)
-
-      // Delete entry from Firestore
       await deleteDoc(doc(db, "entries", entry.id))
-
-      // You might also want to clean up timeline events and map locations
-      // This would require querying and deleting related documents
 
       toast.success("Entry deleted successfully")
       navigate('/dashboard')
@@ -400,7 +372,6 @@ export default function EditEntryPage() {
     }
   }
 
-  // Cleanup preview URLs on unmount
   React.useEffect(() => {
     return () => {
       newImagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
