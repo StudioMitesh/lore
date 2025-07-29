@@ -355,7 +355,7 @@ export default function Dashboard() {
                               id={entry.id}
                               title={entry.title}
                               location={`${entry.location}, ${entry.country}`}
-                              date={new Date(entry.timestamp)}
+                              timestamp={entry.timestamp}
                               excerpt={entry.content.substring(0, 150) + '...'}
                               imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
                               index={index}
@@ -442,7 +442,7 @@ export default function Dashboard() {
                           id={entry.id}
                           title={entry.title}
                           location={`${entry.location}, ${entry.country}`}
-                          date={new Date(entry.timestamp)}
+                          timestamp={entry.timestamp}
                           excerpt={entry.content.substring(0, 150) + '...'}
                           imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
                           index={index}
@@ -483,7 +483,7 @@ export default function Dashboard() {
                           id={entry.id}
                           title={entry.title}
                           location={`${entry.location}, ${entry.country}`}
-                          date={new Date(entry.timestamp)}
+                          timestamp={entry.timestamp}
                           excerpt={entry.content.substring(0, 150) + '...'}
                           imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
                           index={index}
@@ -523,7 +523,7 @@ export default function Dashboard() {
                           id={entry.id}
                           title={entry.title}
                           location={`${entry.location}, ${entry.country}`}
-                          date={new Date(entry.timestamp)}
+                          timestamp={entry.timestamp}
                           excerpt={entry.content.substring(0, 150) + '...'}
                           imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
                           index={index}
@@ -556,7 +556,7 @@ export default function Dashboard() {
                           id={entry.id}
                           title={entry.title || "Untitled Draft"}
                           location={entry.location ? `${entry.location}, ${entry.country}` : "Location not set"}
-                          date={new Date(entry.createdAt)}
+                          timestamp={entry.createdAt || entry.timestamp}
                           excerpt={entry.content ? entry.content.substring(0, 150) + '...' : "No content yet"}
                           imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
                           index={index}

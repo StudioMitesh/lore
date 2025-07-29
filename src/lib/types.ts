@@ -158,7 +158,7 @@ export interface UserProfile {
   
   export interface MapLocation {
     id: string
-    uid: string
+    uid?: string
     name: string
     lat: number
     lng: number

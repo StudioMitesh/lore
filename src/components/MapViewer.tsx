@@ -12,6 +12,7 @@ import { type MapLocation, type Trip, type TripWithDetails, type Entry } from "@
 interface Location extends MapLocation {
   trip?: Trip
   entry?: Entry
+  uid?: string
 }
 
 interface MapViewerProps {

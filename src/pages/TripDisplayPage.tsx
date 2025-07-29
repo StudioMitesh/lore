@@ -352,7 +352,7 @@ export default function TripDisplayPage() {
                         id={entry.id}
                         title={entry.title}
                         location={`${entry.location}, ${entry.country}`}
-                        date={new Date(entry.timestamp)}
+                        timestamp={entry.timestamp}
                         excerpt={entry.content.substring(0, 150) + '...'}
                         imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
                         index={index}

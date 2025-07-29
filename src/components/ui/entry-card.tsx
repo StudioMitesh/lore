@@ -38,7 +38,7 @@ interface EntryCardProps {
   id: string
   title: string
   location: string
-  date: string // timestamp string
+  timestamp: string // timestamp string
   excerpt: string
   imageUrl: string
   index: number
@@ -62,7 +62,7 @@ export function EntryCard({
   id,
   title,
   location,
-  date,
+  timestamp,
   excerpt,
   imageUrl,
   index,
@@ -224,7 +224,7 @@ export function EntryCard({
               </div>
               <div className="flex items-center gap-2 text-white/70 text-xs">
                 <Calendar className="h-3 w-3" />
-                <span>{safeFormatDate(date, "MM dd, yyyy")}</span>
+                <span>{safeFormatDate(timestamp, "MM dd, yyyy")}</span>
               </div>
             </div>
           </div>
@@ -250,7 +250,7 @@ export function EntryCard({
 
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-gold/10">
               <div className="flex items-center gap-2 text-xs text-deepbrown/50">
-                {isDraft ? "Draft created" : "Published"} {safeFormatDate(date, "MMM d")}
+                {isDraft ? "Draft created" : "Published"} {safeFormatDate(timestamp, "MMM d")}
               </div>
 
               <motion.div
