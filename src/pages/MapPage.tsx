@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import { motion } from "framer-motion"
-import { ChevronRight, ChevronLeft, List, Grid, MapPin, Plus, Loader2 } from "lucide-react"
-import { collection, query, where, onSnapshot, doc, addDoc, deleteDoc } from "firebase/firestore"
+import { ChevronRight, ChevronLeft, Grid, MapPin, Plus, Loader2, Route } from "lucide-react"
+import { collection, query, where, onSnapshot, doc, addDoc, deleteDoc, getDocs } from "firebase/firestore"
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,30 +15,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { db } from "@/api/firebase"
 import { useAuth } from '@/context/useAuth'
-import { type Entry, type MapLocation, type Trip } from "@/lib/types"
+import { type Entry, type MapLocation, type Trip, type DayLog, type TripWithDetails } from "@/lib/types"
 import { toast } from "sonner"
+import { format } from "date-fns"
+
+interface MapLocationWithDetails extends MapLocation {
+  trip?: Trip
+  dayLog?: DayLog
+  entry?: Entry
+}
 
 export default function MapPage() {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = React.useState(true)
-  const [entries, setEntries] = React.useState<Entry[]>([])
-  const [mapLocations, setMapLocations] = React.useState<MapLocation[]>([])
-  const [trips, setTrips] = React.useState<Trip[]>([])
+  const [trips, setTrips] = React.useState<TripWithDetails[]>([])
+  const [standaloneEntries, setStandaloneEntries] = React.useState<Entry[]>([])
+  const [customLocations, setCustomLocations] = React.useState<MapLocation[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [showLocationDialog, setShowLocationDialog] = React.useState(false)
-  const [showTripDialog, setShowTripDialog] = React.useState(false)
-  const [selectedEntries, setSelectedEntries] = React.useState<string[]>([])
+  const [selectedTrip, setSelectedTrip] = React.useState<string>("")
   
   const [newLocation, setNewLocation] = React.useState({
     name: "",
     type: "visited" as "visited" | "planned" | "favorite",
-    coordinates: { lat: 0, lng: 0 }
-  })
-  
-  const [newTrip, setNewTrip] = React.useState({
-    name: "",
-    description: "",
-    entryIds: [] as string[]
+    coordinates: { lat: 0, lng: 0 },
+    tripId: ""
   })
 
   React.useEffect(() => {
@@ -46,51 +47,94 @@ export default function MapPage() {
 
     setIsLoading(true)
 
-    const entriesQuery = query(
-      collection(db, "entries"),
-      where("uid", "==", user.uid),
-      where("isDraft", "!=", true)
-    )
-
-    const unsubscribeEntries = onSnapshot(entriesQuery, (snapshot) => {
-      const entriesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Entry[]
-      setEntries(entriesData)
-    })
-
-    const locationsQuery = query(
-      collection(db, "mapLocations"),
-      where("uid", "==", user.uid)
-    )
-
-    const unsubscribeLocations = onSnapshot(locationsQuery, (snapshot) => {
-      const locationsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as MapLocation[]
-      setMapLocations(locationsData)
-    })
-
+    // Load trips with their day logs and entries
     const tripsQuery = query(
       collection(db, "trips"),
       where("uid", "==", user.uid)
     )
 
-    const unsubscribeTrips = onSnapshot(tripsQuery, (snapshot) => {
+    const unsubscribeTrips = onSnapshot(tripsQuery, async (snapshot) => {
       const tripsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Trip[]
-      setTrips(tripsData)
+
+      // For each trip, load its day logs and recent entries
+      const tripsWithDetails: TripWithDetails[] = []
+      for (const trip of tripsData) {
+        const dayLogsQuery = query(
+          collection(db, "dayLogs"),
+          where("tripId", "==", trip.id)
+        )
+        
+        const dayLogsSnapshot = await getDocs(dayLogsQuery)
+        const dayLogs = dayLogsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as DayLog[]
+
+        const entriesQuery = query(
+          collection(db, "entries"),
+          where("tripId", "==", trip.id),
+          where("isDraft", "!=", true)
+        )
+        
+        const entriesSnapshot = await getDocs(entriesQuery)
+        const recentEntries = entriesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Entry[]
+
+        // Get unique locations count
+        const locationCount = new Set(recentEntries.map(e => `${e.coordinates.lat},${e.coordinates.lng}`)).size
+
+        tripsWithDetails.push({
+          ...trip,
+          dayLogs,
+          recentEntries: recentEntries.slice(0, 5), // Recent 5 entries
+          locationCount
+        })
+      }
+
+      setTrips(tripsWithDetails)
+    })
+
+    // Load standalone entries
+    const standaloneQuery = query(
+      collection(db, "entries"),
+      where("uid", "==", user.uid),
+      where("isStandalone", "==", true),
+      where("isDraft", "!=", true)
+    )
+
+    const unsubscribeStandalone = onSnapshot(standaloneQuery, (snapshot) => {
+      const standaloneData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Entry[]
+      setStandaloneEntries(standaloneData)
+    })
+
+    // Load custom locations
+    const customLocationsQuery = query(
+      collection(db, "mapLocations"),
+      where("uid", "==", user.uid),
+      where("isCustom", "==", true)
+    )
+
+    const unsubscribeCustom = onSnapshot(customLocationsQuery, (snapshot) => {
+      const customData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as MapLocation[]
+      setCustomLocations(customData)
       setIsLoading(false)
     })
 
     return () => {
-      unsubscribeEntries()
-      unsubscribeLocations()
       unsubscribeTrips()
+      unsubscribeStandalone()
+      unsubscribeCustom()
     }
   }, [user])
 
@@ -115,40 +159,17 @@ export default function MapPage() {
         lat: newLocation.coordinates.lat,
         lng: newLocation.coordinates.lng,
         type: newLocation.type,
+        tripId: newLocation.tripId || undefined,
+        isCustom: true,
         createdAt: new Date().toISOString()
       })
 
       toast.success("Location added successfully!")
       setShowLocationDialog(false)
-      setNewLocation({ name: "", type: "visited", coordinates: { lat: 0, lng: 0 } })
+      setNewLocation({ name: "", type: "visited", coordinates: { lat: 0, lng: 0 }, tripId: "" })
     } catch (error) {
       console.error("Error adding location:", error)
       toast.error("Failed to add location")
-    }
-  }
-
-  const handleCreateTrip = async () => {
-    if (!user || !newTrip.name) {
-      toast.error("Please enter a trip name")
-      return
-    }
-
-    try {
-      await addDoc(collection(db, "trips"), {
-        uid: user.uid,
-        name: newTrip.name,
-        description: newTrip.description,
-        entryIds: selectedEntries,
-        createdAt: new Date().toISOString()
-      })
-
-      toast.success("Trip created successfully!")
-      setShowTripDialog(false)
-      setNewTrip({ name: "", description: "", entryIds: [] })
-      setSelectedEntries([])
-    } catch (error) {
-      console.error("Error creating trip:", error)
-      toast.error("Failed to create trip")
     }
   }
 
@@ -162,38 +183,75 @@ export default function MapPage() {
     }
   }
 
-  const getAllLocations = () => {
-    const entryLocations = entries.map(entry => ({
-      id: entry.id,
-      name: entry.location,
-      lat: entry.coordinates.lat,
-      lng: entry.coordinates.lng,
-      type: "visited" as const,
-      entry
-    }))
+  const getAllMapLocations = () => {
+    const locations: MapLocationWithDetails[] = []
 
-    const customLocations = mapLocations.map(location => ({
-      id: location.id,
-      name: location.name,
-      lat: location.lat,
-      lng: location.lng,
-      type: location.type,
-      location
-    }))
+    // Add trip-based locations (grouped by trip)
+    trips.forEach(trip => {
+      // Get unique locations from trip entries
+      const tripLocations = new Map<string, Entry>()
+      trip.recentEntries.forEach(entry => {
+        const key = `${entry.coordinates.lat},${entry.coordinates.lng}`
+        if (!tripLocations.has(key)) {
+          tripLocations.set(key, entry)
+        }
+      })
 
-    return [...entryLocations, ...customLocations]
+      // Add trip locations
+      tripLocations.forEach(entry => {
+        locations.push({
+          id: `trip-${trip.id}-${entry.id}`,
+          uid: user?.uid || "",
+          name: entry.location,
+          lat: entry.coordinates.lat,
+          lng: entry.coordinates.lng,
+          type: "visited",
+          tripId: trip.id,
+          trip,
+          entry,
+          isCustom: false
+        })
+      })
+    })
+
+    // Add standalone entry locations
+    standaloneEntries.forEach(entry => {
+      locations.push({
+        id: `standalone-${entry.id}`,
+        uid: user?.uid || "",
+        name: entry.location,
+        lat: entry.coordinates.lat,
+        lng: entry.coordinates.lng,
+        type: "visited",
+        entry,
+        isCustom: false
+      })
+    })
+
+    // Add custom locations
+    customLocations.forEach(location => {
+      const trip = location.tripId ? trips.find(t => t.id === location.tripId) : undefined
+      locations.push({
+        ...location,
+        trip
+      })
+    })
+
+    return locations
   }
 
   const getLocationsByType = (type: string) => {
-    return getAllLocations().filter(loc => loc.type === type)
-  }
-
-  const toggleEntrySelection = (entryId: string) => {
-    setSelectedEntries(prev => 
-      prev.includes(entryId) 
-        ? prev.filter(id => id !== entryId)
-        : [...prev, entryId]
-    )
+    if (type === "trips") {
+      return trips.map(trip => ({
+        id: trip.id,
+        name: trip.name,
+        type: "trip" as const,
+        trip,
+        locationCount: trip.locationCount,
+        status: trip.status
+      }))
+    }
+    return getAllMapLocations().filter(loc => loc.type === type)
   }
 
   if (isLoading) {
@@ -218,13 +276,13 @@ export default function MapPage() {
         <div className="flex h-[calc(100vh-4rem)]">
           <motion.div
             className="bg-parchment-light border-r border-gold/20 h-full overflow-y-auto"
-            initial={{ width: 320 }}
-            animate={{ width: sidebarOpen ? 320 : 0 }}
+            initial={{ width: 350 }}
+            animate={{ width: sidebarOpen ? 350 : 0 }}
             transition={{ duration: 0.3 }}
           >
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-xl font-medium text-deepbrown">Your Locations</h2>
+                <h2 className="font-display text-xl font-medium text-deepbrown">Travel Map</h2>
                 <div className="flex gap-2">
                   <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
                     <DialogTrigger asChild>
@@ -263,6 +321,25 @@ export default function MapPage() {
                             </SelectContent>
                           </Select>
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="trip-assignment">Assign to Trip (Optional)</Label>
+                          <Select 
+                            value={newLocation.tripId} 
+                            onValueChange={(value) => setNewLocation(prev => ({ ...prev, tripId: value }))}
+                          >
+                            <SelectTrigger className="bg-parchment border-gold/30">
+                              <SelectValue placeholder="Select a trip..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">No trip</SelectItem>
+                              {trips.map(trip => (
+                                <SelectItem key={trip.id} value={trip.id}>
+                                  {trip.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="h-[200px] rounded-lg overflow-hidden">
                           <MapViewer
                             locations={newLocation.coordinates.lat ? [{
@@ -270,7 +347,8 @@ export default function MapPage() {
                               name: newLocation.name,
                               lat: newLocation.coordinates.lat,
                               lng: newLocation.coordinates.lng,
-                              type: newLocation.type
+                              type: newLocation.type,
+                              uid: user?.uid || ""
                             }] : []}
                             onLocationSelect={handleLocationSelect}
                             interactive={true}
@@ -291,18 +369,83 @@ export default function MapPage() {
                 </div>
               </div>
 
-              <Tabs defaultValue="all" className="w-full">
+              <Tabs defaultValue="trips" className="w-full">
                 <TabsList className="bg-parchment-dark border border-gold/20 w-full">
-                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="trips">Trips</TabsTrigger>
+                  <TabsTrigger value="all">All Locations</TabsTrigger>
                   <TabsTrigger value="visited">Visited</TabsTrigger>
                   <TabsTrigger value="planned">Planned</TabsTrigger>
-                  <TabsTrigger value="trips">Trips</TabsTrigger>
+                  <TabsTrigger value="custom">Custom</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="all" className="mt-4 space-y-2">
-                  {getAllLocations().map((location, index) => (
+                <TabsContent value="trips" className="mt-4 space-y-2">
+                  {trips.map((trip, index) => (
                     <motion.div
-                      key={`${location.id}-${location.type}`}
+                      key={trip.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer group"
+                      onClick={() => setSelectedTrip(selectedTrip === trip.id ? "" : trip.id)}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center">
+                        <Route
+                          className="h-4 w-4"
+                          color={
+                            trip.status === "completed" ? "#d4af37" :
+                            trip.status === "active" ? "#4c6b54" :
+                            trip.status === "planned" ? "#b22222" :
+                            "#8B7355"
+                          }
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-deepbrown">{trip.name}</p>
+                        <div className="flex items-center gap-2 text-xs text-deepbrown/70">
+                          <span className="capitalize">{trip.status}</span>
+                          <span>•</span>
+                          <span>{trip.locationCount} locations</span>
+                          <span>•</span>
+                          <span>{trip.totalEntries} entries</span>
+                        </div>
+                      </div>
+                      <ChevronRight 
+                        className={`h-4 w-4 text-deepbrown/50 transition-transform ${
+                          selectedTrip === trip.id ? 'rotate-90' : ''
+                        }`} 
+                      />
+                    </motion.div>
+                  ))}
+
+                  {/* Standalone entries section */}
+                  {standaloneEntries.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium text-deepbrown/70 mb-2 px-2">Standalone Entries</h4>
+                      {standaloneEntries.map((entry, index) => (
+                        <motion.div
+                          key={entry.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: (trips.length + index) * 0.05 }}
+                          className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-forest/10 flex items-center justify-center">
+                            <MapPin className="h-4 w-4 text-forest" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-deepbrown">{entry.title}</p>
+                            <p className="text-xs text-deepbrown/70">{entry.location}, {entry.country}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="all" className="mt-4 space-y-2">
+                  {getAllMapLocations().map((location, index) => (
+                    <motion.div
+                      key={location.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
@@ -312,19 +455,32 @@ export default function MapPage() {
                         <MapPin
                           className="h-4 w-4"
                           color={
-                            location.type === "visited"
-                              ? "#d4af37"
-                              : location.type === "planned"
-                                ? "#4c6b54"
-                                : "#b22222"
+                            location.type === "visited" ? "#d4af37" :
+                            location.type === "planned" ? "#4c6b54" :
+                            location.type === "favorite" ? "#b22222" :
+                            "#8B7355"
                           }
                         />
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-deepbrown">{location.name}</p>
-                        <p className="text-xs text-deepbrown/70 capitalize">{location.type}</p>
+                        <div className="flex items-center gap-1 text-xs text-deepbrown/70">
+                          <span className="capitalize">{location.type}</span>
+                          {location.trip && (
+                            <>
+                              <span>•</span>
+                              <span className="text-gold">{location.trip.name}</span>
+                            </>
+                          )}
+                          {location.entry && (
+                            <>
+                              <span>•</span>
+                              <span>{format(new Date(location.entry.timestamp), "MMM d, yyyy")}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      {('location' in location) && (
+                      {location.isCustom && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -344,7 +500,7 @@ export default function MapPage() {
                 <TabsContent value="visited" className="mt-4 space-y-2">
                   {getLocationsByType("visited").map((location, index) => (
                     <motion.div
-                      key={`visited-${location.id}`}
+                      key={location.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
@@ -353,7 +509,7 @@ export default function MapPage() {
                       <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center">
                         <MapPin className="h-4 w-4 text-gold" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="text-sm font-medium text-deepbrown">{location.name}</p>
                         <p className="text-xs text-deepbrown/70">Visited</p>
                       </div>
@@ -364,7 +520,7 @@ export default function MapPage() {
                 <TabsContent value="planned" className="mt-4 space-y-2">
                   {getLocationsByType("planned").map((location, index) => (
                     <motion.div
-                      key={`planned-${location.id}`}
+                      key={location.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
@@ -373,7 +529,7 @@ export default function MapPage() {
                       <div className="w-8 h-8 rounded-full bg-forest/10 flex items-center justify-center">
                         <MapPin className="h-4 w-4 text-forest" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="text-sm font-medium text-deepbrown">{location.name}</p>
                         <p className="text-xs text-deepbrown/70">Planned</p>
                       </div>
@@ -381,91 +537,40 @@ export default function MapPage() {
                   ))}
                 </TabsContent>
 
-                <TabsContent value="trips" className="mt-4 space-y-2">
-                  <div className="mb-4">
-                    <Dialog open={showTripDialog} onOpenChange={setShowTripDialog}>
-                      <DialogTrigger asChild>
-                        <Button size="sm" className="w-full bg-gold hover:bg-gold/90">
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Trip
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="parchment border border-gold/20 max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle className="font-display text-deepbrown">Create New Trip</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="trip-name">Trip Name</Label>
-                            <Input
-                              id="trip-name"
-                              placeholder="Enter trip name"
-                              value={newTrip.name}
-                              onChange={(e) => setNewTrip(prev => ({ ...prev, name: e.target.value }))}
-                              className="bg-parchment border-gold/30"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="trip-description">Description (Optional)</Label>
-                            <Input
-                              id="trip-description"
-                              placeholder="Trip description"
-                              value={newTrip.description}
-                              onChange={(e) => setNewTrip(prev => ({ ...prev, description: e.target.value }))}
-                              className="bg-parchment border-gold/30"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Select Entries</Label>
-                            <div className="max-h-48 overflow-y-auto space-y-2 border border-gold/20 rounded-lg p-3">
-                              {entries.map(entry => (
-                                <div key={entry.id} className="flex items-center space-x-2">
-                                  <input
-                                    type="checkbox"
-                                    id={`entry-${entry.id}`}
-                                    checked={selectedEntries.includes(entry.id)}
-                                    onChange={() => toggleEntrySelection(entry.id)}
-                                    className="rounded"
-                                  />
-                                  <label 
-                                    htmlFor={`entry-${entry.id}`}
-                                    className="text-sm text-deepbrown cursor-pointer flex-1"
-                                  >
-                                    {entry.title} - {entry.location}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <DialogClose asChild>
-                            <Button variant="outline">Cancel</Button>
-                          </DialogClose>
-                          <Button onClick={handleCreateTrip} className="bg-gold hover:bg-gold/90">
-                            Create Trip
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  
-                  {trips.map((trip, index) => (
+                <TabsContent value="custom" className="mt-4 space-y-2">
+                  {customLocations.map((location, index) => (
                     <motion.div
-                      key={trip.id}
+                      key={location.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer"
+                      className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer group"
                     >
                       <div className="w-8 h-8 rounded-full bg-deepbrown/10 flex items-center justify-center">
-                        <List className="h-4 w-4 text-deepbrown" />
+                        <MapPin
+                          className="h-4 w-4"
+                          color={
+                            location.type === "visited" ? "#d4af37" :
+                            location.type === "planned" ? "#4c6b54" :
+                            "#b22222"
+                          }
+                        />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-deepbrown">{trip.name}</p>
-                        <p className="text-xs text-deepbrown/70">{trip.entryIds.length} locations</p>
+                        <p className="text-sm font-medium text-deepbrown">{location.name}</p>
+                        <p className="text-xs text-deepbrown/70 capitalize">{location.type}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-deepbrown/50" />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemoveLocation(location.id)
+                        }}
+                      >
+                        <ChevronRight className="h-4 w-4 text-red-500" />
+                      </Button>
                     </motion.div>
                   ))}
                 </TabsContent>
@@ -483,7 +588,11 @@ export default function MapPage() {
               {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </Button>
 
-            <MapViewer locations={getAllLocations()} />
+            <MapViewer 
+              locations={getAllMapLocations()} 
+              trips={trips}
+              selectedTripId={selectedTrip}
+            />
 
             <div className="absolute bottom-6 left-6 z-10">
               <AnimatedButton animationType="glow">

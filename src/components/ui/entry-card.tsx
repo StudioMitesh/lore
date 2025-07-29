@@ -1,7 +1,16 @@
 "use client"
 import { motion } from "framer-motion"
-import { format } from "date-fns"
-import { Heart, MapPin, Calendar, Eye, Edit3, MoreVertical, Trash2 } from "lucide-react"
+import { format, isValid } from "date-fns"
+import {
+  Heart,
+  MapPin,
+  Calendar,
+  Eye,
+  Edit3,
+  MoreVertical,
+  Trash2,
+  Plane,
+} from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -29,16 +38,24 @@ interface EntryCardProps {
   id: string
   title: string
   location: string
-  date: Date
+  date: string // timestamp string
   excerpt: string
   imageUrl: string
   index: number
-  type?: string
+  type: string
   isFavorite?: boolean
   isDraft?: boolean
-  entryIcon?: React.ReactNode
-  onFavoriteToggle?: () => void
+  tripName?: string
+  dayLogDate?: string // timestamp string or undefined
+  entryIcon: React.ReactNode
+  onFavoriteToggle: () => void
   onDelete?: () => void
+}
+
+const safeFormatDate = (dateString: string | undefined, formatStr: string): string => {
+  if (!dateString) return ""
+  const parsed = new Date(dateString)
+  return isValid(parsed) ? format(parsed, formatStr) : ""
 }
 
 export function EntryCard({
@@ -52,20 +69,18 @@ export function EntryCard({
   type = "journal",
   isFavorite = false,
   isDraft = false,
+  tripName,
+  dayLogDate,
   entryIcon,
   onFavoriteToggle,
-  onDelete
+  onDelete,
 }: EntryCardProps) {
   const navigate = useNavigate()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleCardClick = () => {
-    if (isDraft) {
-      navigate(`/edit-entry/${id}`)
-    } else {
-      navigate(`/entry/${id}`)
-    }
+    navigate(isDraft ? `/edit-entry/${id}` : `/entry/${id}`)
   }
 
   const handleEdit = (e: React.MouseEvent) => {
@@ -80,7 +95,7 @@ export function EntryCard({
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onFavoriteToggle?.()
+    onFavoriteToggle()
   }
 
   const handleDeleteClick = (e: React.MouseEvent) => {
@@ -96,7 +111,7 @@ export function EntryCard({
       onDelete?.()
       setShowDeleteDialog(false)
     } catch (error) {
-      console.error('Error deleting entry:', error)
+      console.error("Error deleting entry:", error)
       toast.error("Failed to delete entry")
     } finally {
       setIsDeleting(false)
@@ -105,11 +120,16 @@ export function EntryCard({
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "journal": return "bg-blue-100 text-blue-800 border-blue-200"
-      case "photo": return "bg-green-100 text-green-800 border-green-200"
-      case "map": return "bg-purple-100 text-purple-800 border-purple-200"
-      case "artifact": return "bg-orange-100 text-orange-800 border-orange-200"
-      default: return "bg-gray-100 text-gray-800 border-gray-200"
+      case "journal":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "photo":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "map":
+        return "bg-purple-100 text-purple-800 border-purple-200"
+      case "artifact":
+        return "bg-orange-100 text-orange-800 border-orange-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
     }
   }
 
@@ -130,9 +150,9 @@ export function EntryCard({
               alt={title}
               className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-105"
             />
-            
+
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-90 transition-opacity duration-300 group-hover/card:opacity-100" />
-            
+
             <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
               <div className="flex gap-2">
                 {isDraft && (
@@ -147,7 +167,7 @@ export function EntryCard({
                   </Badge>
                 )}
               </div>
-              
+
               <div className="flex gap-1">
                 <Button
                   variant="ghost"
@@ -155,13 +175,13 @@ export function EntryCard({
                   className="h-8 w-8 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white transition-colors duration-200"
                   onClick={handleFavorite}
                 >
-                  <Heart 
+                  <Heart
                     className={`h-4 w-4 transition-colors ${
-                      isFavorite ? 'fill-red-500 text-red-500' : 'text-white hover:text-red-300'
-                    }`} 
+                      isFavorite ? "fill-red-500 text-red-500" : "text-white hover:text-red-300"
+                    }`}
                   />
                 </Button>
-                
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -185,7 +205,7 @@ export function EntryCard({
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={handleDeleteClick}
                       className="text-red-600 focus:text-red-600"
                     >
@@ -204,7 +224,7 @@ export function EntryCard({
               </div>
               <div className="flex items-center gap-2 text-white/70 text-xs">
                 <Calendar className="h-3 w-3" />
-                <span>{format(date, "MMM d, yyyy")}</span>
+                <span>{safeFormatDate(date, "MM dd, yyyy")}</span>
               </div>
             </div>
           </div>
@@ -213,32 +233,38 @@ export function EntryCard({
             <h3 className="font-display text-lg font-semibold text-deepbrown mb-2 line-clamp-1">
               {title}
             </h3>
-            <p className="text-deepbrown/70 text-sm leading-relaxed line-clamp-3">
-              {excerpt}
-            </p>
-            
+            <p className="text-deepbrown/70 text-sm leading-relaxed line-clamp-3">{excerpt}</p>
+
+            {tripName && (
+              <div className="flex items-center gap-2 text-sm text-deepbrown/70 mb-2">
+                <Plane className="h-3 w-3 text-gold" />
+                <span className="text-gold font-medium">{tripName}</span>
+                {dayLogDate && safeFormatDate(dayLogDate, "MMM d") && (
+                  <>
+                    <span>•</span>
+                    <span>{safeFormatDate(dayLogDate, "MMM d")}</span>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-gold/10">
               <div className="flex items-center gap-2 text-xs text-deepbrown/50">
-                {isDraft ? "Draft created" : "Published"} {format(date, "MMM d")}
+                {isDraft ? "Draft created" : "Published"} {safeFormatDate(date, "MMM d")}
               </div>
-              
+
               <motion.div
                 className="flex items-center gap-1 text-gold hover:text-gold/80 text-sm font-medium"
                 whileHover={{ x: 3 }}
               >
                 {isDraft ? "Continue editing" : "Read more"}
-                <svg 
-                  className="w-4 h-4 transition-transform group-hover:translate-x-1" 
-                  fill="none" 
-                  stroke="currentColor" 
+                <svg
+                  className="w-4 h-4 transition-transform group-hover:translate-x-1"
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M9 5l7 7-7 7" 
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </motion.div>
             </div>
@@ -251,22 +277,15 @@ export function EntryCard({
           <DialogHeader>
             <DialogTitle>Delete Entry</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{title}"? This action cannot be undone and will permanently remove the entry and all associated photos.
+              Are you sure you want to delete "{title}"? This action cannot be undone and will permanently remove the
+              entry and all associated photos.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowDeleteDialog(false)}
-              disabled={isDeleting}
-            >
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting}>
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleConfirmDelete}
-              disabled={isDeleting}
-            >
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
               {isDeleting ? (
                 <motion.div
                   animate={{ rotate: 360 }}

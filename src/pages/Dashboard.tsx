@@ -1,7 +1,7 @@
 "use client"
 import { motion } from "framer-motion"
 import { format } from "date-fns"
-import { Search, Plus, MapPin, Calendar, Filter, Heart, BookOpen, Camera, Map, Archive, Loader2 } from "lucide-react"
+import { Search, Plus, MapPin, Calendar, Filter, Heart, BookOpen, Camera, Map, Archive, Loader2, Plane, MapIcon } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useCallback, useEffect, useState } from "react"
 import { Navbar } from "@/components/Navbar"
@@ -9,25 +9,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EntryCard } from "@/components/ui/entry-card"
+import { TripCard } from "@/components/ui/trip-card"
 import { AnimatedButton } from "@/components/ui/animated-button"
-import { type Entry } from "@/lib/types"
+import { type Entry, type Trip, type EntryWithTripInfo, type UserStats } from "@/lib/types"
 import { entryService } from "@/services/entryService"
+import { tripService } from "@/services/tripService"
 import { useAuth } from '@/context/useAuth'
 import { toast } from "sonner"
-
-interface UserStats {
-  totalEntries: number
-  countriesVisited: number
-  continents: number
-  latestEntryDate: string | null
-  totalPhotos: number
-}
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   
-  const [entries, setEntries] = useState<Entry[]>([])
+  const [entries, setEntries] = useState<EntryWithTripInfo[]>([])
+  const [trips, setTrips] = useState<Trip[]>([])
+  const [standaloneEntries, setStandaloneEntries] = useState<Entry[]>([])
   const [favoriteEntries, setFavoriteEntries] = useState<Entry[]>([])
   const [draftEntries, setDraftEntries] = useState<Entry[]>([])
   const [stats, setStats] = useState<UserStats>({
@@ -35,33 +31,46 @@ export default function Dashboard() {
     countriesVisited: 0,
     continents: 0,
     latestEntryDate: null,
-    totalPhotos: 0
+    totalPhotos: 0,
+    totalTrips: 0,
+    activeDays: 0
   })
   
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState("overview")
 
-  const loadEntries = useCallback(async () => {
+  const loadData = useCallback(async () => {
     if (!user) return
     
     try {
       setIsLoading(true)
       
-      const [allEntries, favorites, drafts, userStats] = await Promise.all([
-        entryService.getUserEntries(user.uid, false),
+      const [
+        allEntriesWithTripInfo,
+        userTrips,
+        standalone,
+        favorites, 
+        drafts, 
+        userStats
+      ] = await Promise.all([
+        entryService.getUserEntriesWithTripInfo(user.uid, false),
+        tripService.getUserTrips(user.uid),
+        entryService.getStandaloneEntries(user.uid),
         entryService.getFavoriteEntries(user.uid),
         entryService.getDraftEntries(user.uid),
         entryService.getUserStats(user.uid)
       ])
       
-      setEntries(allEntries)
+      setEntries(allEntriesWithTripInfo)
+      setTrips(userTrips)
+      setStandaloneEntries(standalone)
       setFavoriteEntries(favorites)
       setDraftEntries(drafts)
       setStats(userStats)
     } catch (error) {
-      console.error('Error loading entries:', error)
-      toast.error("Failed to load entries")
+      console.error('Error loading dashboard data:', error)
+      toast.error("Failed to load dashboard data")
     } finally {
       setIsLoading(false)
     }
@@ -69,16 +78,35 @@ export default function Dashboard() {
 
   const handleSearch = async () => {
     if (!user || !searchTerm.trim()) {
-      loadEntries()
+      loadData()
       return
     }
 
     try {
       setIsLoading(true)
-      const searchResults = await entryService.searchEntries(user.uid, searchTerm)
-      setEntries(searchResults)
+      const [entryResults, tripResults] = await Promise.all([
+        entryService.searchEntries(user.uid, searchTerm),
+        tripService.searchTrips(user.uid, searchTerm)
+      ])
+      
+      const entriesWithTripInfo: EntryWithTripInfo[] = []
+      for (const entry of entryResults) {
+        let tripName: string | undefined
+        if (entry.tripId) {
+          try {
+            const trip = await tripService.getTrip(entry.tripId)
+            tripName = trip?.name
+          } catch (error) {
+            console.warn(`Failed to fetch trip ${entry.tripId}:`, error)
+          }
+        }
+        entriesWithTripInfo.push({ ...entry, tripName })
+      }
+      
+      setEntries(entriesWithTripInfo)
+      setTrips(tripResults)
     } catch (error) {
-      console.error('Error searching entries:', error)
+      console.error('Error searching:', error)
       toast.error("Search failed")
     } finally {
       setIsLoading(false)
@@ -88,11 +116,22 @@ export default function Dashboard() {
   const handleFavoriteToggle = async (entryId: string) => {
     try {
       await entryService.toggleFavorite(entryId)
-      loadEntries()
+      loadData()
       toast.success("Entry updated!")
     } catch (error) {
       console.error('Error toggling favorite:', error)
       toast.error("Failed to update entry")
+    }
+  }
+
+  const handleTripFavoriteToggle = async (tripId: string) => {
+    try {
+      await tripService.toggleTripFavorite(tripId)
+      loadData()
+      toast.success("Trip updated!")
+    } catch (error) {
+      console.error('Error toggling trip favorite:', error)
+      toast.error("Failed to update trip")
     }
   }
 
@@ -102,12 +141,17 @@ export default function Dashboard() {
       case "photo": return <Camera className="h-4 w-4" />
       case "map": return <Map className="h-4 w-4" />
       case "artifact": return <Archive className="h-4 w-4" />
+      case "event": return <Calendar className="h-4 w-4" />
       default: return <BookOpen className="h-4 w-4" />
     }
   }
 
   const getRecentEntries = () => {
     return entries.slice(0, 6)
+  }
+
+  const getRecentTrips = () => {
+    return trips.slice(0, 4)
   }
 
   const getRecentLocations = () => {
@@ -117,22 +161,22 @@ export default function Dashboard() {
         acc.push(entry)
       }
       return acc
-    }, [] as Entry[])
+    }, [] as EntryWithTripInfo[])
     
     return uniqueLocations.slice(0, 4)
   }
 
   useEffect(() => {
     if (user && !authLoading) {
-      loadEntries()
+      loadData()
     }
-  }, [user, authLoading, loadEntries])
+  }, [user, authLoading, loadData])
 
   useEffect(() => {
     if (searchTerm === "") {
-      loadEntries()
+      loadData()
     }
-  }, [loadEntries, searchTerm])
+  }, [loadData, searchTerm])
 
   if (authLoading || isLoading) {
     return (
@@ -179,19 +223,29 @@ export default function Dashboard() {
               <h1 className="font-display text-3xl font-bold text-deepbrown">Your Adventures</h1>
               <p className="text-deepbrown/70">
                 {stats.totalEntries > 0 
-                  ? `${stats.totalEntries} entries across ${stats.countriesVisited} countries`
+                  ? `${stats.totalEntries} entries across ${stats.totalTrips} trips in ${stats.countriesVisited} countries`
                   : "Start documenting your travel memories"
                 }
               </p>
             </div>
-            <AnimatedButton 
-              animationType="glow" 
-              className="shrink-0"
-              onClick={() => navigate('/new-entry')}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create New Entry
-            </AnimatedButton>
+            <div className="flex gap-3">
+              <AnimatedButton 
+                animationType="glow" 
+                className="shrink-0"
+                onClick={() => navigate('/new-trip')}
+              >
+                <Plane className="mr-2 h-4 w-4" />
+                New Trip
+              </AnimatedButton>
+              <AnimatedButton 
+                animationType="glow" 
+                className="shrink-0"
+                onClick={() => navigate('/new-entry')}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New Entry
+              </AnimatedButton>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-8">
@@ -200,7 +254,7 @@ export default function Dashboard() {
                 <div className="relative flex-1 w-full sm:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
                   <Input 
-                    placeholder="Search entries..." 
+                    placeholder="Search entries and trips..." 
                     className="pl-9 bg-parchment-light border-gold/30"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -234,11 +288,17 @@ export default function Dashboard() {
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="bg-parchment-dark border border-gold/20 w-full sm:w-auto flex">
-                  <TabsTrigger value="all">
+                  <TabsTrigger value="overview">
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="trips">
+                    Trips ({trips.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="entries">
                     All Entries ({entries.length})
                   </TabsTrigger>
-                  <TabsTrigger value="recent">
-                    Recent
+                  <TabsTrigger value="standalone">
+                    Solo Entries ({standaloneEntries.length})
                   </TabsTrigger>
                   <TabsTrigger value="favorites">
                     Favorites ({favoriteEntries.length})
@@ -248,7 +308,132 @@ export default function Dashboard() {
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="all" className="mt-6">
+                <TabsContent value="overview" className="mt-6">
+                  <div className="space-y-8">
+                    {trips.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-display text-xl font-medium text-deepbrown">Recent Trips</h3>
+                          <Button 
+                            variant="ghost" 
+                            onClick={() => setActiveTab('trips')}
+                            className="text-gold hover:text-gold/80"
+                          >
+                            View All
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {getRecentTrips().map((trip, index) => (
+                            <TripCard
+                              key={trip.id}
+                              trip={trip}
+                              index={index}
+                              onClick={() => navigate(`/trip/${trip.id}`)}
+                              onFavoriteToggle={() => handleTripFavoriteToggle(trip.id)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {entries.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-display text-xl font-medium text-deepbrown">Recent Entries</h3>
+                          <Button 
+                            variant="ghost" 
+                            onClick={() => setActiveTab('entries')}
+                            className="text-gold hover:text-gold/80"
+                          >
+                            View All
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {getRecentEntries().map((entry, index) => (
+                            <EntryCard
+                              key={entry.id}
+                              id={entry.id}
+                              title={entry.title}
+                              location={`${entry.location}, ${entry.country}`}
+                              date={new Date(entry.timestamp)}
+                              excerpt={entry.content.substring(0, 150) + '...'}
+                              imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
+                              index={index}
+                              type={entry.type}
+                              isFavorite={entry.isFavorite}
+                              onFavoriteToggle={() => handleFavoriteToggle(entry.id)}
+                              entryIcon={getEntryIcon(entry.type)}
+                              tripName={entry.tripName}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {trips.length === 0 && entries.length === 0 && (
+                      <div className="text-center py-12">
+                        <Plane className="h-16 w-16 text-gold/50 mx-auto mb-4" />
+                        <h3 className="font-display text-xl font-medium text-deepbrown mb-2">
+                          No adventures yet
+                        </h3>
+                        <p className="text-deepbrown/70 mb-6">
+                          Start your journey by creating your first trip or entry
+                        </p>
+                        <div className="flex gap-3 justify-center">
+                          <AnimatedButton 
+                            animationType="glow"
+                            onClick={() => navigate('/new-trip')}
+                          >
+                            <Plane className="mr-2 h-4 w-4" />
+                            Create Trip
+                          </AnimatedButton>
+                          <AnimatedButton 
+                            animationType="glow"
+                            onClick={() => navigate('/new-entry')}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Entry
+                          </AnimatedButton>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="trips" className="mt-6">
+                  {trips.length > 0 ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {trips.map((trip, index) => (
+                        <TripCard
+                          key={trip.id}
+                          trip={trip}
+                          index={index}
+                          onClick={() => navigate(`/trip/${trip.id}`)}
+                          onFavoriteToggle={() => handleTripFavoriteToggle(trip.id)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Plane className="h-16 w-16 text-gold/50 mx-auto mb-4" />
+                      <h3 className="font-display text-xl font-medium text-deepbrown mb-2">
+                        No trips yet
+                      </h3>
+                      <p className="text-deepbrown/70 mb-6">
+                        Create your first trip to organize your travel memories
+                      </p>
+                      <AnimatedButton 
+                        animationType="glow"
+                        onClick={() => navigate('/new-trip')}
+                      >
+                        <Plane className="mr-2 h-4 w-4" />
+                        Create First Trip
+                      </AnimatedButton>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="entries" className="mt-6">
                   {entries.length > 0 ? (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {entries.map((entry, index) => (
@@ -257,7 +442,7 @@ export default function Dashboard() {
                           id={entry.id}
                           title={entry.title}
                           location={`${entry.location}, ${entry.country}`}
-                          date={new Date(entry.date)}
+                          date={new Date(entry.timestamp)}
                           excerpt={entry.content.substring(0, 150) + '...'}
                           imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
                           index={index}
@@ -265,6 +450,7 @@ export default function Dashboard() {
                           isFavorite={entry.isFavorite}
                           onFavoriteToggle={() => handleFavoriteToggle(entry.id)}
                           entryIcon={getEntryIcon(entry.type)}
+                          tripName={entry.tripName}
                         />
                       ))}
                     </div>
@@ -288,37 +474,56 @@ export default function Dashboard() {
                   )}
                 </TabsContent>
 
-                <TabsContent value="recent" className="mt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {getRecentEntries().map((entry, index) => (
-                      <EntryCard
-                        key={entry.id}
-                        id={entry.id}
-                        title={entry.title}
-                        location={`${entry.location}, ${entry.country}`}
-                        date={new Date(entry.date)}
-                        excerpt={entry.content.substring(0, 150) + '...'}
-                        imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
-                        index={index}
-                        type={entry.type}
-                        isFavorite={entry.isFavorite}
-                        onFavoriteToggle={() => handleFavoriteToggle(entry.id)}
-                        entryIcon={getEntryIcon(entry.type)}
-                      />
-                    ))}
-                  </div>
+                <TabsContent value="standalone" className="mt-6">
+                  {standaloneEntries.length > 0 ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {standaloneEntries.map((entry, index) => (
+                        <EntryCard
+                          key={entry.id}
+                          id={entry.id}
+                          title={entry.title}
+                          location={`${entry.location}, ${entry.country}`}
+                          date={new Date(entry.timestamp)}
+                          excerpt={entry.content.substring(0, 150) + '...'}
+                          imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
+                          index={index}
+                          type={entry.type}
+                          isFavorite={entry.isFavorite}
+                          onFavoriteToggle={() => handleFavoriteToggle(entry.id)}
+                          entryIcon={getEntryIcon(entry.type)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <BookOpen className="h-16 w-16 text-gold/50 mx-auto mb-4" />
+                      <h3 className="font-display text-xl font-medium text-deepbrown mb-2">
+                        No solo entries
+                      </h3>
+                      <p className="text-deepbrown/70 mb-6">
+                        Solo entries are individual memories not part of a trip
+                      </p>
+                      <AnimatedButton 
+                        animationType="glow"
+                        onClick={() => navigate('/new-entry')}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Solo Entry
+                      </AnimatedButton>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="favorites" className="mt-6">
                   {favoriteEntries.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {favoriteEntries.map((entry, index) => (
                         <EntryCard
                           key={entry.id}
                           id={entry.id}
                           title={entry.title}
                           location={`${entry.location}, ${entry.country}`}
-                          date={new Date(entry.date)}
+                          date={new Date(entry.timestamp)}
                           excerpt={entry.content.substring(0, 150) + '...'}
                           imageUrl={entry.mediaUrls[0] || "/placeholder.svg?height=400&width=600"}
                           index={index}
@@ -344,7 +549,7 @@ export default function Dashboard() {
 
                 <TabsContent value="drafts" className="mt-6">
                   {draftEntries.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {draftEntries.map((entry, index) => (
                         <EntryCard
                           key={entry.id}
@@ -380,8 +585,12 @@ export default function Dashboard() {
 
             <div className="space-y-6">
               <div className="bg-parchment-light rounded-2xl border border-gold/20 p-5">
-                <h3 className="font-display text-lg font-medium text-deepbrown mb-4">Trip Statistics</h3>
+                <h3 className="font-display text-lg font-medium text-deepbrown mb-4">Adventure Statistics</h3>
                 <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-deepbrown/70">Total Trips</span>
+                    <span className="font-display font-medium">{stats.totalTrips}</span>
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className="text-deepbrown/70">Total Entries</span>
                     <span className="font-display font-medium">{stats.totalEntries}</span>
@@ -393,6 +602,10 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center">
                     <span className="text-deepbrown/70">Continents</span>
                     <span className="font-display font-medium">{stats.continents}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-deepbrown/70">Active Days</span>
+                    <span className="font-display font-medium">{stats.activeDays}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-deepbrown/70">Total Photos</span>
@@ -427,14 +640,49 @@ export default function Dashboard() {
                           <p className="text-sm font-medium text-deepbrown truncate">
                             {entry.location}
                           </p>
-                          <p className="text-xs text-deepbrown/70">
-                            {entry.country} • {format(new Date(entry.date), "MMM d, yyyy")}
-                          </p>
+                          <div className="flex items-center gap-1 text-xs text-deepbrown/70">
+                            <span>{entry.country}</span>
+                            {entry.tripName && (
+                              <>
+                                <span>•</span>
+                                <span className="text-gold">{entry.tripName}</span>
+                              </>
+                            )}
+                            <span>•</span>
+                            <span>{format(new Date(entry.timestamp), "MMM d, yyyy")}</span>
+                          </div>
                         </div>
                         <div className="text-gold/70">
                           {getEntryIcon(entry.type)}
                         </div>
                       </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {trips.length > 0 && (
+                <div className="bg-parchment-light rounded-2xl border border-gold/20 p-5">
+                  <h3 className="font-display text-lg font-medium text-deepbrown mb-4">Trip Status</h3>
+                  <div className="space-y-3">
+                    {Object.entries(
+                      trips.reduce((acc, trip) => {
+                        acc[trip.status] = (acc[trip.status] || 0) + 1
+                        return acc
+                      }, {} as Record<string, number>)
+                    ).map(([status, count]) => (
+                      <div key={status} className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${
+                            status === 'completed' ? 'bg-green-500' :
+                            status === 'active' ? 'bg-blue-500' :
+                            status === 'planned' ? 'bg-yellow-500' :
+                            'bg-gray-500'
+                          }`} />
+                          <span className="text-deepbrown/70 capitalize">{status}</span>
+                        </div>
+                        <span className="font-display font-medium">{count}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -468,6 +716,14 @@ export default function Dashboard() {
                   <Button 
                     variant="outline" 
                     className="w-full justify-start border-gold/30 bg-transparent"
+                    onClick={() => navigate('/new-trip')}
+                  >
+                    <Plane className="mr-2 h-4 w-4" />
+                    New Trip
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start border-gold/30 bg-transparent"
                     onClick={() => navigate('/new-entry')}
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -478,7 +734,7 @@ export default function Dashboard() {
                     className="w-full justify-start border-gold/30 bg-transparent"
                     onClick={() => navigate('/map')}
                   >
-                    <Map className="mr-2 h-4 w-4" />
+                    <MapIcon className="mr-2 h-4 w-4" />
                     View Map
                   </Button>
                   <Button 

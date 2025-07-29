@@ -24,7 +24,7 @@ import { useNavigate } from "react-router-dom"
 interface FormData {
   title: string
   content: string
-  date: string
+  timestamp: string
   location: string
   country: string
   coordinates: { lat: number; lng: number }
@@ -39,7 +39,7 @@ export default function NewEntryPage() {
   const [formData, setFormData] = React.useState<FormData>({
     title: "",
     content: "",
-    date: new Date().toISOString().split('T')[0],
+    timestamp: new Date().toISOString(),
     location: "",
     country: "",
     coordinates: { lat: 0, lng: 0 },
@@ -208,7 +208,7 @@ export default function NewEntryPage() {
         uid: user.uid,
         title: formData.title,
         content: formData.content,
-        date: formData.date,
+        timestamp: formData.timestamp,
         location: formData.location,
         country: formData.country,
         coordinates: formData.coordinates,
@@ -236,7 +236,7 @@ export default function NewEntryPage() {
           id: docRef.id,
           uid: user.uid,
           title: formData.title,
-          date: formData.date,
+          timestamp: formData.timestamp,
           location: formData.location,
           country: formData.country,
           type: formData.type,
@@ -420,8 +420,8 @@ export default function NewEntryPage() {
                         id="date" 
                         type="date" 
                         className="pl-9 bg-parchment border-gold/30"
-                        value={formData.date}
-                        onChange={(e) => handleInputChange('date', e.target.value)}
+                        value={formData.timestamp}
+                        onChange={(e) => handleInputChange('timestamp', e.target.value)}
                       />
                     </div>
                   </div>

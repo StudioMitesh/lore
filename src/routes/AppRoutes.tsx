@@ -9,6 +9,10 @@ import ProfilePage from '@/pages/ProfilePage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import EditEntryPage from '@/pages/EditEntryPage';
+import NewTripPage from '@/pages/NewTripPage';
+import EditTripPage from '@/pages/EditTripPage';
+import EntryDisplayPage from '@/pages/EntryDisplayPage';
+import TripDisplayPage from '@/pages/TripDisplayPage';
 import { useAuth } from '@/context/useAuth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
@@ -95,6 +99,46 @@ const AppRoutes = () => {
             <PageWrapper>
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/new-trip"
+          element={
+            <PageWrapper>
+              <ProtectedRoute>
+                <NewTripPage />
+              </ProtectedRoute>
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/edit-trip/:id"
+          element={
+            <PageWrapper>
+              <ProtectedRoute>
+                <EditTripPage />
+              </ProtectedRoute>
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/entry/:id"
+          element={
+            <PageWrapper>
+              <ProtectedRoute>
+                <EntryDisplayPage />
+              </ProtectedRoute>
+            </PageWrapper>
+          }
+        />
+        <Route
+          path="/trip/:id"
+          element={
+            <PageWrapper>
+              <ProtectedRoute>
+                <TripDisplayPage />
               </ProtectedRoute>
             </PageWrapper>
           }

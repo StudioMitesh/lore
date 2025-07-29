@@ -24,6 +24,8 @@ export interface UserProfile {
       continents: number
       badges: number
       totalPhotos?: number
+      totalTrips?: number
+      activeDays?: number
     }
     badges: Badge[]
     createdAt: string
@@ -33,10 +35,12 @@ export interface UserProfile {
   
   export interface Entry {
     id: string
+    tripId?: string
+    dayLogId?: string
     uid: string
     title: string
     content: string
-    date: string
+    timestamp: string
     location: string
     country: string
     coordinates: {
@@ -45,22 +49,60 @@ export interface UserProfile {
     }
     mediaUrls: string[]
     tags?: string[]
-    type: "journal" | "photo" | "map" | "artifact"
+    type: "journal" | "photo" | "map" | "artifact" | "event"
     createdAt: string
     updatedAt?: string
     isDraft?: boolean
     isFavorite?: boolean
+    isStandalone?: boolean
+  }
+
+  export interface Trip {
+    id: string
+    uid: string
+    name: string
+    description?: string
+    startDate: string
+    endDate?: string
+    coverImageUrl?: string
+    status: "draft" | "planned" | "active" | "completed"
+    dayLogIDs: string[]
+    entryIDs: string[]
+    totalEntries: number
+    createdAt: string
+    updatedAt?: string
+    isFavorite?: boolean
+    countriesVisited: string[]
+    companions: string[]
+    tags?: string[]
+  }
+
+  export interface DayLog {
+    id: string
+    tripId: string
+    uid: string
+    date: string
+    location: string
+    country: string
+    coordinates: { lat: number; lng: number }
+    description?: string
+    entryIds: string[]
+    totalEntries: number
+    createdAt: string
+    updatedAt?: string
   }
   
   export interface TimelineEvent {
     id: string
     uid: string
     title: string
-    date: string
+    timestamp: string
     location: string
     country: string
-    type: "journal" | "photo" | "map" | "artifact"
+    type: "journal" | "photo" | "map" | "artifact" | "event"
     createdAt: string
+    tripId?: string
+    dayLogId?: string
   }
   
   export interface Badge {
@@ -121,21 +163,10 @@ export interface UserProfile {
     lat: number
     lng: number
     type: "visited" | "planned" | "favorite"
-    entryId?: string // Link to related entry
-    createdAt: string
-  }
-  
-  export interface Trip {
-    id: string
-    uid: string
-    name: string
-    description?: string
-    entryIds: string[]
-    startDate?: string
-    endDate?: string
-    coverImageUrl?: string
-    createdAt: string
-    updatedAt?: string
+    tripId?: string
+    dayLogId?: string
+    entryId?: string
+    isCustom?: boolean // true if custom add, false if from entry/trip/daylog
   }
   
   export interface ExportedEntry {
@@ -170,4 +201,55 @@ export interface UserProfile {
     continents: number
     latestEntryDate: string | null
     totalPhotos: number
+    totalTrips: number
+    activeDays: number
+  }
+
+  export interface CreateTripData {
+    name: string
+    description?: string
+    startDate: string
+    endDate?: string
+    status?: "draft" | "planned" | "active" | "completed"
+    tags?: string[]
+    coverImageUrl?: string
+  }
+  
+  export interface CreateDayLogData {
+    tripId: string
+    date: string
+    location: string
+    country: string
+    coordinates: { lat: number; lng: number }
+    description?: string
+  }
+  
+  export interface CreateEntryData {
+    title: string
+    content: string
+    timestamp: string
+    location: string
+    country: string
+    coordinates: { lat: number; lng: number }
+    tags?: string[]
+    type: "journal" | "photo" | "map" | "artifact" | "event"
+    isDraft?: boolean
+    tripId?: string
+    dayLogId?: string
+    isStandalone?: boolean
+  }
+  
+  export interface TripWithDetails extends Trip {
+    dayLogs: DayLog[]
+    recentEntries: Entry[]
+    locationCount: number
+  }
+  
+  export interface DayLogWithEntries extends DayLog {
+    entries: Entry[]
+  }
+  
+  export interface EntryWithTripInfo extends Entry {
+    tripName?: string
+    dayLogDate?: string
   }

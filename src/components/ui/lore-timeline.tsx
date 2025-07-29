@@ -1,6 +1,6 @@
 "use client"
 import { motion } from "framer-motion"
-import { format } from "date-fns"
+import { format, isValid } from "date-fns"
 import { cn } from "@/lib/utils"
 import { type TimelineEvent } from "@/lib/types"
 
@@ -10,14 +10,23 @@ interface LoreTimelineProps {
   onEntryClick?: (id: string) => void
 }
 
+const safeFormatDate = (dateString: string | undefined, formatStr: string): string => {
+  if (!dateString) return ""
+  const parsed = new Date(dateString)
+  return isValid(parsed) ? format(parsed, formatStr) : ""
+}
+
 export function LoreTimeline({ entries, className, onEntryClick }: LoreTimelineProps) {
-  const sortedEntries = [...entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  const sortedEntries = [...entries].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  )
 
   const typeIcons = {
     journal: "📝",
     photo: "📷",
     artifact: "🏺",
     map: "🗺️",
+    event: "🎫",
   }
 
   return (
@@ -59,7 +68,7 @@ export function LoreTimeline({ entries, className, onEntryClick }: LoreTimelineP
               </div>
               <div className="flex justify-between text-xs text-deepbrown/70">
                 <span>{entry.location}</span>
-                <span>{format(entry.date, "MMM d, yyyy")}</span>
+                <span>{safeFormatDate(entry.timestamp, "MMM d, yyyy")}</span>
               </div>
             </motion.div>
           </motion.div>
