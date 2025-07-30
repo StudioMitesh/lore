@@ -1,4 +1,3 @@
-// mapviewer.tsx
 "use client"
 
 import { useEffect, useRef, useState } from "react"
@@ -68,7 +67,6 @@ export function MapViewer({
   const [searchValue, setSearchValue] = useState("")
   const [searchResults, setSearchResults] = useState<AutocompletePrediction[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isSearching, setIsSearching] = useState(false)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [mapType, setMapType] = useState<string>("roadmap")
   const [showTraffic, setShowTraffic] = useState(false)
@@ -147,7 +145,6 @@ export function MapViewer({
   const handleSearch = async () => {
     if (!searchValue.trim() || !mapInstanceRef.current) return
   
-    setIsSearching(true)
     try {
       const results = await searchPlaces(searchValue, center ? {
         lat: center.lat,
@@ -161,8 +158,6 @@ export function MapViewer({
       console.error("Search failed:", error)
       setSearchResults([])
       setShowSearchResults(false)
-    } finally {
-      setIsSearching(false)
     }
   }
 
@@ -469,7 +464,7 @@ export function MapViewer({
               </PopoverTrigger>
               <PopoverContent className="p-0 w-80" align="start">
                 <div className="max-h-60 overflow-y-auto">
-                  {searchResults.map((result, index) => (
+                  {searchResults.map((result, _index) => (
                     <div
                       key={result.placeId}
                       className="p-3 hover:bg-parchment/50 cursor-pointer border-b border-gold/10 last:border-b-0"

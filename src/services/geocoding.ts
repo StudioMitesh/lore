@@ -6,7 +6,7 @@ export const getPlaceDetails = async (lat: number, lng: number): Promise<PlaceDe
   const geocoder = new window.google.maps.Geocoder();
 
   const results = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
-    geocoder.geocode({ location: { lat, lng } }, (res, status) => {
+    geocoder.geocode({ location: { lat, lng } }, (res: google.maps.GeocoderResult[] | PromiseLike<google.maps.GeocoderResult[]>, status: string) => {
       if (status === 'OK' && res) resolve(res);
       else reject(new Error(`Geocoding failed: ${status}`));
     });
@@ -35,7 +35,7 @@ export const getPlaceDetailsFromPlaceId = async (placeId: string): Promise<Place
           'address_components'
         ]
       },
-      (place, status) => {
+      (place: google.maps.places.PlaceResult | PromiseLike<google.maps.places.PlaceResult>, status: any) => {
         if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
           resolve(place);
         } else {
@@ -58,21 +58,19 @@ export const searchPlaces = async (
     const request: google.maps.places.AutocompleteRequest = {
         input: query,
         sessionToken,
-        types: ['establishment', 'geocode'],
-        fields: ['name', 'formatted_address', 'place_id', 'types']
+        includedPrimaryTypes: ['establishment', 'geocode'],
+        ...(bias && {
+            location: new window.google.maps.LatLng(bias.lat, bias.lng),
+            radius: bias.radius ?? 50000
+        })
     };
-
-    if (bias) {
-        request.location = new window.google.maps.LatLng(bias.lat, bias.lng);
-        request.radius = bias.radius ?? 50000;
-    }
 
     try {
         const { AutocompleteService } = await window.google.maps.importLibrary("places") as any;
         const service = new AutocompleteService();
         
         const predictions = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
-            service.getPlacePredictions(request, (res, status) => {
+            service.getPlacePredictions(request, (res: google.maps.places.AutocompletePrediction[] | PromiseLike<google.maps.places.AutocompletePrediction[]>, status: any) => {
                 if (status === window.google.maps.places.PlacesServiceStatus.OK && res) resolve(res);
                 else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) resolve([]);
                 else reject(new Error(`Autocomplete failed: ${status}`));
@@ -110,7 +108,7 @@ export const getNearbyPlaces = async (
   };
 
   const results = await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
-    service.nearbySearch(request, (res, status) => {
+    service.nearbySearch(request, (res: google.maps.places.PlaceResult[] | PromiseLike<google.maps.places.PlaceResult[]>, status: any) => {
       if (status === window.google.maps.places.PlacesServiceStatus.OK && res) resolve(res);
       else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) resolve([]);
       else reject(new Error(`Nearby search failed: ${status}`));

@@ -49,7 +49,6 @@ export default function MapPage() {
 
   // Custom location state
   const [locationSearchQuery, setLocationSearchQuery] = React.useState("")
-  const [isLocationSearching, setIsLocationSearching] = React.useState(false)
   const [isAddingLocation, setIsAddingLocation] = React.useState(false)
 
   // Location modal state
@@ -482,9 +481,9 @@ export default function MapPage() {
                               value={locationSearchQuery}
                               onChange={(e) => setLocationSearchQuery(e.target.value)}
                             />
-                            {isLocationSearching && (
+                            {
                               <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gold" />
-                            )}
+                            }
                           </div>
                         </div>
                       </div>
