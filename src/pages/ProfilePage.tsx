@@ -385,7 +385,7 @@ export default function ProfilePage() {
       <Navbar />
       <main className="flex-1 pt-24 pb-16">
         <div className="container">
-          {/* Cover Photo Section */}
+
           {profile.coverPhotoUrl && (
             <div className="relative h-64 rounded-2xl overflow-hidden mb-8">
               <img 

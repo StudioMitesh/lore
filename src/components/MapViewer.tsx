@@ -2,28 +2,41 @@
 
 import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
-import { Search, Layers, Filter, MapPin, Route } from "lucide-react"
+import { Search, Layers, MapPin, Route, Navigation, Satellite, Map as MapIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge"
 import { loadGoogleMapsApi } from "@/api/googleMapsLoader"
-import { type MapLocation, type Trip, type TripWithDetails, type Entry } from "@/lib/types"
+import { getPlaceDetails, getPlaceDetailsFromPlaceId, searchPlaces } from "@/services/geocoding";
+import { type Entry, type Trip, type TripWithDetails, type AutocompletePrediction } from "@/lib/types"
 
-interface Location extends MapLocation {
-  trip?: Trip
-  entry?: Entry
+interface MapLocation {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  type: "visited" | "planned" | "favorite"
   uid?: string
+  entry?: Entry
+  trip?: Trip
+  tripId?: string
 }
 
 interface MapViewerProps {
-  locations: Location[]
+  locations: MapLocation[]
   trips?: TripWithDetails[]
   selectedTripId?: string
   className?: string
   onLocationSelect?: (location: { lat: number; lng: number; address?: string }) => void
+  onLocationClick?: (location: MapLocation) => void
   interactive?: boolean
   center?: { lat: number; lng: number }
   zoom?: number
+  showSearch?: boolean
+  showControls?: boolean
 }
 
 declare global {
@@ -34,34 +47,51 @@ declare global {
 
 export function MapViewer({ 
   locations, 
-  trips = [],
-  selectedTripId,
+  trips = [], 
+  selectedTripId, 
   className, 
-  onLocationSelect,
-  interactive = false,
-  center = { lat: 20, lng: 0 },
-  zoom = 2
+  onLocationSelect, 
+  onLocationClick, 
+  interactive = false, 
+  center = { lat: 20, lng: 0 }, 
+  zoom = 2,
+  showSearch = true,
+  showControls = true
 }: MapViewerProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
   const polylinesRef = useRef<Map<string, any>>(new Map())
+  const autocompleteServiceRef = useRef<any>(null)
+  
   const [searchValue, setSearchValue] = useState("")
+  const [searchResults, setSearchResults] = useState<AutocompletePrediction[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false)
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [mapType, setMapType] = useState<string>("roadmap")
+  const [showTraffic, setShowTraffic] = useState(false)
+  const [showTransit, setShowTransit] = useState(false)
+  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null)
 
+  // Initialize map
   useEffect(() => {
     const initializeMap = async () => {
       try {
         await loadGoogleMapsApi()
+        const { Map } = await window.google.maps.importLibrary("maps") as any
         
-        const { Map } = await window.google.maps.importLibrary("maps")
         if (!mapRef.current) return
 
-        const map = new Map(mapRef.current, {
+        const mapOptions: any = {
           center,
           zoom,
           mapId: "4578ddca5379c217baab8a20",
-          disableDefaultUI: true,
+          disableDefaultUI: !showControls,
+          mapTypeControl: showControls,
+          streetViewControl: showControls,
+          fullscreenControl: showControls,
+          zoomControl: showControls,
           styles: [
             {
               featureType: "poi",
@@ -70,30 +100,49 @@ export function MapViewer({
             },
             {
               featureType: "transit",
-              elementType: "labels",
-              stylers: [{ visibility: "off" }]
+              elementType: "labels", 
+              stylers: [{ visibility: showTransit ? "on" : "off" }]
             }
           ]
-        })
+        }
 
+        const map = new Map(mapRef.current, mapOptions)
         mapInstanceRef.current = map
 
-        if (interactive) {
-          map.addListener("click", async (event: any) => {
-            const lat = event.latLng.lat()
-            const lng = event.latLng.lng()
-            
-            const geocoder = new window.google.maps.Geocoder()
-            try {
-              const result = await geocoder.geocode({ location: { lat, lng } })
-              const address = result.results[0]?.formatted_address || ""
-              onLocationSelect?.({ lat, lng, address })
-            } catch (error) {
-              console.error("Geocoding failed:", error)
-              onLocationSelect?.({ lat, lng })
-            }
-          })
+        // Add traffic layer toggle
+        const trafficLayer = new window.google.maps.TrafficLayer()
+        if (showTraffic) {
+          trafficLayer.setMap(map)
         }
+
+        // Add transit layer toggle  
+        const transitLayer = new window.google.maps.TransitLayer()
+        if (showTransit) {
+          transitLayer.setMap(map)
+        }
+
+        // Interactive click handler
+        if (interactive) {
+            map.addListener("click", async (event: any) => {
+              const lat = event.latLng.lat()
+              const lng = event.latLng.lng()
+              
+              try {
+                const placeDetails = await getPlaceDetails(lat, lng)
+                onLocationSelect?.({ 
+                  lat, 
+                  lng, 
+                  address: placeDetails.address 
+                })
+              } catch (error) {
+                console.error("Geocoding failed:", error)
+                onLocationSelect?.({ lat, lng })
+              }
+            })
+          }
+
+        // Initialize autocomplete service
+        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
 
         setIsLoading(false)
       } catch (error) {
@@ -103,140 +152,233 @@ export function MapViewer({
     }
 
     initializeMap()
-  }, [center, zoom, interactive, onLocationSelect])
+  }, [center, zoom, interactive, onLocationSelect, showControls, showTraffic, showTransit])
 
+  // Handle search functionality
+  const handleSearch = async () => {
+    if (!searchValue.trim() || !mapInstanceRef.current) return
+  
+    setIsSearching(true)
+    try {
+      const results = await searchPlaces(searchValue, center ? {
+        lat: center.lat,
+        lng: center.lng,
+        radius: 50000
+      } : undefined)
+      
+      if (results.length > 0) {
+        setSearchResults(results)
+        setShowSearchResults(true)
+      }
+    } catch (error) {
+      console.error("Search failed:", error)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+  
+
+  // Handle search result selection
+  const handleSearchResultSelect = async (result: AutocompletePrediction) => {
+    if (!mapInstanceRef.current) return
+  
+    try {
+      const placeDetails = await getPlaceDetailsFromPlaceId(result.placeId)
+      const { lat, lng } = placeDetails.coordinates
+      
+      mapInstanceRef.current.setCenter({ lat, lng })
+      mapInstanceRef.current.setZoom(15)
+      
+      setSearchValue(placeDetails.name)
+      setShowSearchResults(false)
+      
+      // Trigger location selection if in interactive mode
+      if (interactive && onLocationSelect) {
+        onLocationSelect({ 
+          lat, 
+          lng, 
+          address: placeDetails.address 
+        })
+      }
+    } catch (error) {
+      console.error("Failed to navigate to search result:", error)
+    }
+  }
+  
+
+
+  // Get user's current location
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) return
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude
+        const lng = position.coords.longitude
+        
+        setCurrentPosition({ lat, lng })
+        
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.setCenter({ lat, lng })
+          mapInstanceRef.current.setZoom(12)
+        }
+      },
+      (error) => {
+        console.error("Geolocation failed:", error)
+      }
+    )
+  }
+
+  // Update markers when locations change
   useEffect(() => {
     if (!mapInstanceRef.current || isLoading) return
 
     // Clear existing markers and polylines
-    markersRef.current.forEach(marker => marker.map = null)
+    markersRef.current.forEach(marker => marker.setMap(null))
     markersRef.current.clear()
     polylinesRef.current.forEach(polyline => polyline.setMap(null))
     polylinesRef.current.clear()
 
-    const { AdvancedMarkerElement } = window.google.maps.importLibrary("marker")
+    const createMarkers = async () => {
+      const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker") as any
 
-    // Group locations by trip
-    const tripLocations = new Map<string, Location[]>()
-    const standaloneLocations: Location[] = []
+      // Group locations by trip
+      const tripLocations = new Map<string, MapLocation[]>()
+      const standaloneLocations: MapLocation[] = []
 
-    locations.forEach(location => {
-      if (location.tripId && location.trip) {
-        if (!tripLocations.has(location.tripId)) {
-          tripLocations.set(location.tripId, [])
+      locations.forEach(location => {
+        if (location.tripId && location.trip) {
+          if (!tripLocations.has(location.tripId)) {
+            tripLocations.set(location.tripId, [])
+          }
+          tripLocations.get(location.tripId)!.push(location)
+        } else {
+          standaloneLocations.push(location)
         }
-        tripLocations.get(location.tripId)!.push(location)
-      } else {
-        standaloneLocations.push(location)
-      }
-    })
-
-    // Create trip polylines and markers
-    tripLocations.forEach((tripLocs, tripId) => {
-      const trip = trips.find(t => t.id === tripId)
-      if (!trip) return
-
-      const isSelected = selectedTripId === tripId
-      const tripColor = getTripColor(trip.status)
-      const opacity = selectedTripId && !isSelected ? 0.3 : 1.0
-
-      // Sort locations by timestamp if available
-      const sortedLocs = tripLocs.sort((a, b) => {
-        if (a.entry && b.entry) {
-          return new Date(a.entry.timestamp).getTime() - new Date(b.entry.timestamp).getTime()
-        }
-        return 0
       })
 
-      // Create polyline connecting trip locations
-      if (sortedLocs.length > 1) {
-        const path = sortedLocs.map(loc => ({
-          lat: loc.lat,
-          lng: loc.lng
-        }))
+      // Create trip polylines and markers
+      tripLocations.forEach((tripLocs, tripId) => {
+        const trip = trips.find(t => t.id === tripId)
+        if (!trip) return
 
-        const polyline = new window.google.maps.Polyline({
-          path: path,
-          geodesic: true,
-          strokeColor: tripColor,
-          strokeOpacity: opacity * 0.8,
-          strokeWeight: isSelected ? 4 : 2,
-          map: mapInstanceRef.current
+        const isSelected = selectedTripId === tripId
+        const tripColor = getTripColor(trip.status)
+        const opacity = selectedTripId && !isSelected ? 0.3 : 1.0
+
+        // Sort locations by timestamp if available
+        const sortedLocs = tripLocs.sort((a, b) => {
+          if (a.entry && b.entry) {
+            return new Date(a.entry.timestamp).getTime() - new Date(b.entry.timestamp).getTime()
+          }
+          return 0
         })
 
-        polylinesRef.current.set(tripId, polyline)
+        // Create polyline connecting trip locations
+        if (sortedLocs.length > 1) {
+          const path = sortedLocs.map(loc => ({ lat: loc.lat, lng: loc.lng }))
+          const polyline = new window.google.maps.Polyline({
+            path: path,
+            geodesic: true,
+            strokeColor: tripColor,
+            strokeOpacity: opacity * 0.8,
+            strokeWeight: isSelected ? 4 : 2,
+            map: mapInstanceRef.current
+          })
 
-        // Add click listener to polyline
-        polyline.addListener('click', () => {
-          showTripInfoWindow(trip, path[0])
+          polylinesRef.current.set(tripId, polyline)
+
+          // Add click listener to polyline
+          polyline.addListener('click', (event: any) => {
+            showTripInfoWindow(trip, event.latLng)
+          })
+        }
+
+        // Create markers for each location in the trip
+        sortedLocs.forEach((location, index) => {
+          const isFirst = index === 0
+          const isLast = index === sortedLocs.length - 1
+          const pin = createTripPin(tripColor, opacity, isFirst, isLast, index + 1)
+
+          const marker = new AdvancedMarkerElement({
+            map: mapInstanceRef.current,
+            position: { lat: location.lat, lng: location.lng },
+            title: `${trip.name} - ${location.name}`,
+            content: pin,
+          })
+
+          // Add click listener for location modal
+          pin.addEventListener('click', (e: Event) => {
+            e.stopPropagation()
+            onLocationClick?.(location)
+          })
+
+          markersRef.current.set(`trip-${tripId}-${location.id}`, marker)
         })
-      }
+      })
 
-      // Create markers for each location in the trip
-      sortedLocs.forEach((location, index) => {
-        const isFirst = index === 0
-        const isLast = index === sortedLocs.length - 1
-        
-        const pin = createTripPin(tripColor, opacity, isFirst, isLast, index + 1)
-        
+      // Create standalone location markers
+      standaloneLocations.forEach((location) => {
+        const pinColor = getPinColor(location.type)
+        const pin = createStandalonePin(pinColor)
+
         const marker = new AdvancedMarkerElement({
           map: mapInstanceRef.current,
           position: { lat: location.lat, lng: location.lng },
-          title: `${trip.name} - ${location.name}`,
+          title: location.name,
           content: pin,
         })
 
-        // Add click listener for detailed info
-        pin.addEventListener('click', () => {
-          showLocationInfoWindow(location, marker.position)
+        pin.addEventListener('click', (e: Event) => {
+          e.stopPropagation()
+          onLocationClick?.(location)
         })
 
-        markersRef.current.set(`trip-${tripId}-${location.id}`, marker)
-      })
-    })
-
-    // Create standalone location markers
-    standaloneLocations.forEach((location) => {
-      const pinColor = getPinColor(location.type)
-      const pin = createStandalonePin(pinColor)
-
-      const marker = new AdvancedMarkerElement({
-        map: mapInstanceRef.current,
-        position: { lat: location.lat, lng: location.lng },
-        title: location.name,
-        content: pin,
+        markersRef.current.set(`standalone-${location.id}`, marker)
       })
 
-      pin.addEventListener('click', () => {
-        showLocationInfoWindow(location, marker.position)
-      })
+      // Add current position marker if available
+      if (currentPosition) {
+        const currentPin = createCurrentLocationPin()
+        const currentMarker = new AdvancedMarkerElement({
+          map: mapInstanceRef.current,
+          position: currentPosition,
+          title: "Your Current Location",
+          content: currentPin,
+        })
+        markersRef.current.set('current-location', currentMarker)
+      }
 
-      markersRef.current.set(`standalone-${location.id}`, marker)
-    })
+      // Auto-fit bounds if there are locations
+      if (locations.length > 0) {
+        const bounds = new window.google.maps.LatLngBounds()
+        locations.forEach(location => {
+          bounds.extend({ lat: location.lat, lng: location.lng })
+        })
 
-    // Auto-fit bounds if there are locations
-    if (locations.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds()
-      locations.forEach(location => {
-        bounds.extend({ lat: location.lat, lng: location.lng })
-      })
-      
-      if (locations.length === 1) {
-        mapInstanceRef.current.setCenter(bounds.getCenter())
-        mapInstanceRef.current.setZoom(12)
-      } else {
-        mapInstanceRef.current.fitBounds(bounds, { padding: 50 })
+        if (currentPosition) {
+          bounds.extend(currentPosition)
+        }
+
+        if (locations.length === 1 && !currentPosition) {
+          mapInstanceRef.current.setCenter(bounds.getCenter())
+          mapInstanceRef.current.setZoom(12)
+        } else {
+          mapInstanceRef.current.fitBounds(bounds, { padding: 50 })
+        }
       }
     }
 
-  }, [locations, trips, selectedTripId, isLoading])
+    createMarkers()
+  }, [locations, trips, selectedTripId, isLoading, onLocationClick, currentPosition])
 
+  // Helper functions for styling
   const getTripColor = (status: string) => {
     switch (status) {
       case "completed": return "#d4af37" // Gold
-      case "active": return "#4c6b54"    // Forest green
-      case "planned": return "#b22222"   // Dark red
-      case "draft": return "#8B7355"     // Brown
+      case "active": return "#4c6b54" // Forest green
+      case "planned": return "#b22222" // Dark red
+      case "draft": return "#8B7355" // Brown
       default: return "#d4af37"
     }
   }
@@ -244,7 +386,7 @@ export function MapViewer({
   const getPinColor = (type: string) => {
     switch (type) {
       case "visited": return "#d4af37"
-      case "planned": return "#4c6b54" 
+      case "planned": return "#4c6b54"
       case "favorite": return "#b22222"
       default: return "#d4af37"
     }
@@ -252,27 +394,44 @@ export function MapViewer({
 
   const createTripPin = (color: string, opacity: number, isFirst: boolean, isLast: boolean, number: number) => {
     const pin = document.createElement("div")
-    pin.className = "relative flex items-center justify-center transform transition-all hover:scale-110 cursor-pointer"
+    pin.className = "relative flex items-center justify-center transform transition-all hover:scale-110 cursor-pointer hover:z-10"
     
-    const size = isFirst || isLast ? "w-8 h-8" : "w-6 h-6"
+    const size = isFirst || isLast ? "w-10 h-10" : "w-8 h-8"
     const borderSize = isFirst || isLast ? "border-3" : "border-2"
+    const textSize = isFirst || isLast ? "text-sm" : "text-xs"
     
     pin.innerHTML = `
-      <div class="${size} ${borderSize} border-white rounded-full shadow-lg flex items-center justify-center text-white text-xs font-bold"
+      <div class="${size} ${borderSize} border-white rounded-full shadow-lg flex items-center justify-center text-white ${textSize} font-bold hover:shadow-xl transition-all" 
            style="background-color: ${color}; opacity: ${opacity}">
         ${isFirst ? '▶' : isLast ? '🏁' : number}
       </div>
-      ${isFirst ? '<div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white px-2 py-1 rounded text-xs whitespace-nowrap">Start</div>' : ''}
-      ${isLast ? '<div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white px-2 py-1 rounded text-xs whitespace-nowrap">End</div>' : ''}
+      ${isFirst ? '<div class="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Trip Start</div>' : ''}
+      ${isLast ? '<div class="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Trip End</div>' : ''}
     `
-    
     return pin
   }
 
   const createStandalonePin = (color: string) => {
     const pin = document.createElement("div")
-    pin.className = "w-6 h-6 rounded-full border-2 border-white shadow-lg transform transition-transform hover:scale-110 cursor-pointer"
+    pin.className = "w-8 h-8 rounded-full border-2 border-white shadow-lg transform transition-all hover:scale-110 cursor-pointer hover:shadow-xl hover:z-10 relative"
     pin.style.backgroundColor = color
+    
+    // Add pulsing animation for standalone pins
+    pin.innerHTML = `
+      <div class="w-full h-full rounded-full animate-pulse absolute inset-0" 
+           style="background-color: ${color}; opacity: 0.3; transform: scale(1.5);"></div>
+    `
+    return pin
+  }
+
+  const createCurrentLocationPin = () => {
+    const pin = document.createElement("div")
+    pin.className = "w-6 h-6 rounded-full border-2 border-blue-500 bg-blue-400 shadow-lg relative animate-pulse"
+    
+    pin.innerHTML = `
+      <div class="absolute inset-0 rounded-full border-2 border-blue-400 animate-ping"></div>
+      <div class="absolute inset-1 rounded-full bg-blue-500"></div>
+    `
     return pin
   }
 
@@ -285,56 +444,15 @@ export function MapViewer({
           <div class="flex items-center gap-2 text-sm text-gray-500">
             <span class="capitalize">${trip.status}</span>
             <span>•</span>
-            <span>${trip.totalEntries} entries</span>
+            <span>${trip.totalEntries || 0} entries</span>
             <span>•</span>
-            <span>${trip.countriesVisited.length} countries</span>
+            <span>${trip.countriesVisited?.length || 0} countries</span>
           </div>
         </div>
       `,
       position: position
     })
-    
     infoWindow.open(mapInstanceRef.current)
-  }
-
-  const showLocationInfoWindow = (location: Location, position: any) => {
-    const content = `
-      <div class="p-3 max-w-xs">
-        <h3 class="font-bold text-lg mb-2">${location.name}</h3>
-        ${location.trip ? `<p class="text-blue-600 mb-1">Part of: ${location.trip.name}</p>` : ''}
-        ${location.entry ? `<p class="text-gray-600 mb-2">${location.entry.title}</p>` : ''}
-        <div class="text-sm text-gray-500">
-          <span class="capitalize">${location.type}</span>
-          ${location.entry ? ` • ${new Date(location.entry.timestamp).toLocaleDateString()}` : ''}
-        </div>
-      </div>
-    `
-    
-    const infoWindow = new window.google.maps.InfoWindow({
-      content: content,
-      position: position
-    })
-    
-    infoWindow.open(mapInstanceRef.current)
-  }
-
-  const handleSearch = async () => {
-    if (!searchValue.trim() || !mapInstanceRef.current) return
-
-    try {
-      await loadGoogleMapsApi()
-      const geocoder = new window.google.maps.Geocoder()
-      
-      geocoder.geocode({ address: searchValue }, (results: any, status: any) => {
-        if (status === "OK" && results[0]) {
-          const location = results[0].geometry.location
-          mapInstanceRef.current.setCenter(location)
-          mapInstanceRef.current.setZoom(12)
-        }
-      })
-    } catch (error) {
-      console.error("Search failed:", error)
-    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -345,37 +463,122 @@ export function MapViewer({
 
   return (
     <div className={cn("relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden", className)}>
-      <div className="absolute top-4 left-4 right-4 z-10 flex justify-between">
-        <div className="relative">
-          <Input
-            placeholder="Search locations..."
-            className="pl-9 bg-parchment/90 backdrop-blur-sm border-gold/30 w-64"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-          />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+      {/* Search and Controls */}
+      {showSearch && (
+        <div className="absolute top-4 left-4 right-4 z-10 flex justify-between">
+          <div className="relative flex gap-2">
+            <Popover open={showSearchResults} onOpenChange={setShowSearchResults}>
+              <PopoverTrigger asChild>
+                <div className="relative">
+                  <Input
+                    placeholder="Search locations..."
+                    className="pl-9 bg-parchment/90 backdrop-blur-sm border-gold/30 w-64"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    onFocus={() => setShowSearchResults(searchResults.length > 0)}
+                  />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+                </div>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-80" align="start">
+                <div className="max-h-60 overflow-y-auto">
+                  {searchResults.map((result, index) => (
+                    <div
+                      key={result.placeId}
+                      className="p-3 hover:bg-parchment/50 cursor-pointer border-b border-gold/10 last:border-b-0"
+                      onClick={() => handleSearchResultSelect(result)}
+                    >
+                      <div className="font-medium">{result.structuredFormatting.mainText}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {result.structuredFormatting.secondaryText}
+                      </div>
+                      <div className="flex gap-1 mt-1">
+                        {result.types.slice(0, 2).map(type => (
+                          <Badge key={type} variant="secondary" className="text-xs">
+                            {type.replace(/_/g, ' ')}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {showControls && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-parchment/90 backdrop-blur-sm border-gold/30"
+                onClick={handleSearch}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-parchment/90 backdrop-blur-sm border-gold/30"
+                onClick={getCurrentLocation}
+              >
+                <Navigation className="h-4 w-4" />
+              </Button>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="bg-parchment/90 backdrop-blur-sm border-gold/30"
+                  >
+                    <Layers className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium">Map Type</label>
+                      <ToggleGroup type="single" value={mapType} onValueChange={setMapType} className="mt-1">
+                        <ToggleGroupItem value="roadmap" size="sm">
+                          <MapIcon className="h-4 w-4 mr-1" />
+                          Road
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="satellite" size="sm">
+                          <Satellite className="h-4 w-4 mr-1" />
+                          Satellite
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Layers</label>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          variant={showTraffic ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setShowTraffic(!showTraffic)}
+                        >
+                          Traffic
+                        </Button>
+                        <Button
+                          variant={showTransit ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setShowTransit(!showTransit)}
+                        >
+                          Transit
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="bg-parchment/90 backdrop-blur-sm border-gold/30"
-            onClick={handleSearch}
-          >
-            <Search className="h-4 w-4" />
-            <span className="sr-only">Search</span>
-          </Button>
-          <Button variant="outline" size="icon" className="bg-parchment/90 backdrop-blur-sm border-gold/30">
-            <Layers className="h-4 w-4" />
-            <span className="sr-only">Map Layers</span>
-          </Button>
-          <Button variant="outline" size="icon" className="bg-parchment/90 backdrop-blur-sm border-gold/30">
-            <Filter className="h-4 w-4" />
-            <span className="sr-only">Filter</span>
-          </Button>
-        </div>
-      </div>
+      )}
 
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-parchment/80 z-20">
@@ -394,6 +597,7 @@ export function MapViewer({
 
       <div ref={mapRef} className="w-full h-full" />
 
+      {/* Compass Rose */}
       <div className="absolute bottom-8 right-8 w-24 h-24 opacity-80 pointer-events-none">
         <div className="absolute inset-0 flex items-center justify-center">
           <motion.div
@@ -420,6 +624,7 @@ export function MapViewer({
         </div>
       </div>
 
+      {/* Legend */}
       {(locations.length > 0 || trips.length > 0) && (
         <div className="absolute top-20 left-4 bg-parchment/90 backdrop-blur-sm border border-gold/30 rounded-lg p-3 z-10">
           <div className="space-y-2">
@@ -453,6 +658,10 @@ export function MapViewer({
                 </div>
               </>
             )}
+            <hr className="border-gold/20 my-2" />
+            <div className="text-xs text-deepbrown/50">
+              {interactive ? "Click locations for details" : "Click any location for details"}
+            </div>
           </div>
         </div>
       )}

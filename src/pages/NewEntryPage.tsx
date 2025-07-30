@@ -1,8 +1,9 @@
 "use client"
 
+
 import * as React from "react"
 import { motion } from "framer-motion"
-import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive } from "lucide-react"
+import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive, Search, Loader2 } from "lucide-react"
 import { collection, addDoc, doc, updateDoc, getDoc } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { Navbar } from "@/components/Navbar"
@@ -15,11 +16,16 @@ import { AnimatedButton } from "@/components/ui/animated-button"
 import { MapViewer } from "@/components/MapViewer"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { db, storage } from "@/api/firebase"
 import { useAuth } from '@/context/useAuth'
-import { type Entry, type UserProfile } from "@/lib/types"
+import { type Entry, type UserProfile, type AutocompletePrediction } from "@/lib/types"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
+import { EntryImages } from "@/components/EntryImages"
+import { getNearbyPlaces, searchPlaces, getPlaceDetails, getPlaceDetailsFromPlaceId } from "@/services/geocoding"
+
 
 interface FormData {
   title: string
@@ -30,6 +36,7 @@ interface FormData {
   coordinates: { lat: number; lng: number }
   tags: string[]
   type: "journal" | "photo" | "map" | "artifact"
+  placeId?: string
 }
 
 export default function NewEntryPage() {
@@ -39,7 +46,7 @@ export default function NewEntryPage() {
   const [formData, setFormData] = React.useState<FormData>({
     title: "",
     content: "",
-    timestamp: new Date().toISOString(),
+    timestamp: new Date().toISOString().split('T')[0],
     location: "",
     country: "",
     coordinates: { lat: 0, lng: 0 },
@@ -53,9 +60,80 @@ export default function NewEntryPage() {
   const [isLoading, setIsLoading] = React.useState(false)
   const [locationSelected, setLocationSelected] = React.useState(false)
 
+  // Search and autocomplete state
+  const [searchQuery, setSearchQuery] = React.useState("")
+  const [searchResults, setSearchResults] = React.useState<AutocompletePrediction[]>([])
+  const [isSearching, setIsSearching] = React.useState(false)
+  const [showSearchResults, setShowSearchResults] = React.useState(false)
+  const [searchDebounceTimer, setSearchDebounceTimer] = React.useState<NodeJS.Timeout | null>(null)
+
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
+
+  // Enhanced search functionality
+  const handleSearchInputChange = (value: string) => {
+    setSearchQuery(value)
+    
+    // Clear existing timer
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer)
+    }
+  
+    // Set new timer for debounced search
+    const timer = setTimeout(async () => {
+      if (value.trim().length >= 3) {
+        setIsSearching(true)
+        try {
+          const results = await searchPlaces(value, formData.coordinates.lat !== 0 ? {
+            lat: formData.coordinates.lat,
+            lng: formData.coordinates.lng,
+            radius: 50000
+          } : undefined)
+          setSearchResults(results)
+          setShowSearchResults(true)
+        } catch (error) {
+          console.error('Search failed:', error)
+          setSearchResults([])
+        } finally {
+          setIsSearching(false)
+        }
+      } else {
+        setSearchResults([])
+        setShowSearchResults(false)
+      }
+    }, 300)
+  
+    setSearchDebounceTimer(timer)
+  }
+  
+
+
+  // Handle place selection from search results
+  const handlePlaceSelect = async (prediction: AutocompletePrediction) => {
+    setIsSearching(true)
+    try {
+      const placeDetails = await getPlaceDetailsFromPlaceId(prediction.placeId)
+      
+      handleInputChange('location', placeDetails.name)
+      handleInputChange('country', placeDetails.country)
+      handleInputChange('coordinates', placeDetails.coordinates)
+      handleInputChange('placeId', placeDetails.placeId)
+      
+      setSearchQuery(placeDetails.name)
+      setLocationSelected(true)
+      setShowSearchResults(false)
+      
+      toast.success(`Location set to ${placeDetails.name}`)
+    } catch (error) {
+      console.error('Failed to get place details:', error)
+      toast.error('Failed to load place details')
+    } finally {
+      setIsSearching(false)
+    }
+  }
+  
+
 
   const handleAddImage = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
@@ -102,19 +180,66 @@ export default function NewEntryPage() {
     handleInputChange('tags', formData.tags.filter(tag => tag !== tagToRemove))
   }
 
-  const handleLocationSelect = (location: { lat: number; lng: number; address?: string }) => {
-    handleInputChange('coordinates', { lat: location.lat, lng: location.lng })
-    if (location.address) {
-      const addressParts = location.address.split(', ')
-      const country = addressParts[addressParts.length - 1] || ""
-      const city = addressParts[0] || location.address
+  // Enhanced location selection with geocoding
+  const handleLocationSelect = async (location: { lat: number; lng: number; address?: string }) => {
+    try {
+      setIsSearching(true)
       
-      handleInputChange('location', city)
-      handleInputChange('country', country)
+      // First try to get precise place details
+      try {
+        const placeDetails = await getPlaceDetails(location.lat, location.lng)
+        
+        handleInputChange('coordinates', { lat: location.lat, lng: location.lng })
+        handleInputChange('location', placeDetails.name)
+        handleInputChange('country', placeDetails.country)
+        handleInputChange('placeId', placeDetails.placeId)
+        
+        setSearchQuery(placeDetails.name)
+        setLocationSelected(true)
+        toast.success(`Location set to ${placeDetails.name}`)
+        return
+      } catch (error) {
+        console.log('Falling back to nearby places search', error)
+      }
+  
+      // Fallback to nearby places search
+      const nearbyPlaces = await getNearbyPlaces(location.lat, location.lng, 50)
+      
+      if (nearbyPlaces.length > 0) {
+        const placeDetails = nearbyPlaces[0]
+        
+        handleInputChange('coordinates', { lat: location.lat, lng: location.lng })
+        handleInputChange('location', placeDetails.name)
+        handleInputChange('country', placeDetails.country)
+        handleInputChange('placeId', placeDetails.placeId)
+        
+        setSearchQuery(placeDetails.name)
+        setLocationSelected(true)
+        toast.success(`Location set to ${placeDetails.name}`)
+        return
+      }
+  
+      // Final fallback to basic address parsing
+      if (location.address) {
+        const addressParts = location.address.split(', ')
+        const country = addressParts[addressParts.length - 1] || ""
+        const city = addressParts[0] || location.address
+        
+        handleInputChange('coordinates', { lat: location.lat, lng: location.lng })
+        handleInputChange('location', city)
+        handleInputChange('country', country)
+        setLocationSelected(true)
+        toast.success("Location set successfully!")
+      }
+    } catch (error) {
+      console.error('Failed to get location details:', error)
+      toast.error('Failed to set location details')
+    } finally {
+      setIsSearching(false)
     }
-    setLocationSelected(true)
-    toast.success("Location set successfully!")
   }
+  
+
 
   const uploadImages = async (images: File[]): Promise<string[]> => {
     if (images.length === 0) return []
@@ -138,7 +263,6 @@ export default function NewEntryPage() {
       if (profileSnap.exists()) {
         const profile = profileSnap.data() as UserProfile
         
-        // probably replace this with counters TODO
         const countries = new Set([profile.stats.countries, newEntry.country].filter(Boolean))
         const continents = new Set([profile.stats.continents, getContinent(newEntry.country)].filter(Boolean))
         
@@ -161,7 +285,6 @@ export default function NewEntryPage() {
   }
 
   const getContinent = (country: string): string => {
-    // TODO better continent mapping probably or some better solution
     const countryLower = country.toLowerCase()
     if (['usa', 'united states', 'canada', 'mexico'].some(c => countryLower.includes(c))) return 'North America'
     if (['brazil', 'argentina', 'chile', 'peru', 'colombia'].some(c => countryLower.includes(c))) return 'South America'
@@ -217,7 +340,9 @@ export default function NewEntryPage() {
         type: formData.type,
         createdAt: new Date().toISOString(),
         isDraft,
-        isFavorite: false
+        isFavorite: false,
+        isStandalone: true,
+        placeId: formData.placeId
       }
 
       const docRef = await addDoc(collection(db, "entries"), entryData)
@@ -240,18 +365,6 @@ export default function NewEntryPage() {
           location: formData.location,
           country: formData.country,
           type: formData.type,
-          createdAt: new Date().toISOString()
-        })
-      }
-
-      if (formData.coordinates.lat !== 0 || formData.coordinates.lng !== 0) {
-        await addDoc(collection(db, "mapLocations"), {
-          uid: user.uid,
-          name: formData.location,
-          lat: formData.coordinates.lat,
-          lng: formData.coordinates.lng,
-          type: "visited",
-          entryId: docRef.id,
           createdAt: new Date().toISOString()
         })
       }
@@ -279,8 +392,11 @@ export default function NewEntryPage() {
   React.useEffect(() => {
     return () => {
       imagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer)
+      }
     }
-  }, [imagePreviewUrls])
+  }, [imagePreviewUrls, searchDebounceTimer])
 
   return (
     <div className="min-h-screen flex flex-col parchment-texture">
@@ -385,17 +501,57 @@ export default function NewEntryPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="location">Location *</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
-                      <Input
-                        id="location"
-                        placeholder="City, Place"
-                        className="pl-9 bg-parchment border-gold/30"
-                        value={formData.location}
-                        onChange={(e) => handleInputChange('location', e.target.value)}
-                      />
-                    </div>
+                    <Label htmlFor="location-search">Location * (Search or click on map)</Label>
+                    <Popover open={showSearchResults} onOpenChange={setShowSearchResults}>
+                      <PopoverTrigger asChild>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+                          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+                          <Input
+                            id="location-search"
+                            placeholder="Search for a place..."
+                            className="pl-9 pr-9 bg-parchment border-gold/30"
+                            value={searchQuery}
+                            onChange={(e) => handleSearchInputChange(e.target.value)}
+                            onFocus={() => setShowSearchResults(searchResults.length > 0)}
+                          />
+                          {isSearching && (
+                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gold" />
+                          )}
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-0 w-[400px]" align="start">
+                        <Command>
+                          <CommandList>
+                            {searchResults.length === 0 && searchQuery.length >= 3 && !isSearching && (
+                              <CommandEmpty>No places found.</CommandEmpty>
+                            )}
+                            <CommandGroup>
+                              {searchResults.map((result) => (
+                                <CommandItem
+                                  key={result.placeId}
+                                  value={result.description}
+                                  onSelect={() => handlePlaceSelect(result)}
+                                  className="flex flex-col items-start py-3"
+                                >
+                                  <div className="font-medium">{result.structuredFormatting.mainText}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {result.structuredFormatting.secondaryText}
+                                  </div>
+                                  <div className="flex gap-1 mt-1">
+                                    {result.types.slice(0, 2).map(type => (
+                                      <Badge key={type} variant="secondary" className="text-xs">
+                                        {type.replace(/_/g, ' ')}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   
                   <div className="space-y-2">
@@ -518,42 +674,27 @@ export default function NewEntryPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {imagePreviewUrls.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {imagePreviewUrls.map((url, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="relative group"
-                      >
-                        <img
-                          src={url}
-                          alt={`Travel photo ${index + 1}`}
-                          className="w-full h-40 object-cover rounded-lg border border-gold/20"
-                        />
+                <EntryImages 
+                  images={imagePreviewUrls} 
+                  title="Entry Photos"
+                  maxDisplayImages={6}
+                  enableLightbox={true}
+                />
+                {imagePreviewUrls.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {images.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-parchment rounded border border-gold/20">
+                        <span className="text-sm text-deepbrown truncate">{file.name}</span>
                         <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleRemoveImage(index)}
+                          className="text-red-600 hover:text-red-800"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-4 w-4" />
                         </Button>
-                        <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                          {images[index]?.name}
-                        </div>
-                      </motion.div>
+                      </div>
                     ))}
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gold/30 rounded-lg p-8 text-center">
-                    <ImageIcon className="h-12 w-12 text-gold/50 mx-auto mb-4" />
-                    <p className="text-deepbrown/70 mb-2">No photos added yet</p>
-                    <p className="text-sm text-deepbrown/50">
-                      Click "Add Photos" to upload images from your adventure
-                    </p>
                   </div>
                 )}
               </CardContent>
@@ -563,7 +704,8 @@ export default function NewEntryPage() {
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown">Map Location *</CardTitle>
                 <p className="text-sm text-deepbrown/70">
-                  Click on the map to set the exact location of your adventure
+                  Search above or click on the map to set the exact location of your adventure. 
+                  Selected locations will appear as markers.
                 </p>
               </CardHeader>
               <CardContent>
@@ -574,7 +716,8 @@ export default function NewEntryPage() {
                       name: formData.location || 'Selected Location',
                       lat: formData.coordinates.lat,
                       lng: formData.coordinates.lng,
-                      type: 'visited'
+                      type: 'visited',
+                      uid: user?.uid || ""
                     }] : []}
                     onLocationSelect={handleLocationSelect}
                     interactive={true}
@@ -583,10 +726,21 @@ export default function NewEntryPage() {
                   />
                 </div>
                 {locationSelected && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-800">
-                      ✓ Location set: {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}
-                    </p>
+                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-5 w-5 text-green-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-green-800">
+                          Location set: {formData.location}
+                        </p>
+                        <p className="text-xs text-green-700">
+                          {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}
+                        </p>
+                        {formData.country && (
+                          <p className="text-xs text-green-700">{formData.country}</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </CardContent>

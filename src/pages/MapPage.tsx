@@ -2,12 +2,13 @@
 
 import * as React from "react"
 import { motion } from "framer-motion"
-import { ChevronRight, ChevronLeft, Grid, MapPin, Plus, Loader2, Route } from "lucide-react"
+import { ChevronRight, ChevronLeft, Grid, MapPin, Plus, Loader2, Route, Search } from "lucide-react"
 import { collection, query, where, onSnapshot, doc, addDoc, deleteDoc, getDocs } from "firebase/firestore"
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MapViewer } from "@/components/MapViewer"
+import { LocationModal } from "@/components/LocationModal"
 import { AnimatedButton } from "@/components/ui/animated-button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog"
@@ -15,14 +16,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { db } from "@/api/firebase"
 import { useAuth } from '@/context/useAuth'
-import { type Entry, type MapLocation, type Trip, type DayLog, type TripWithDetails } from "@/lib/types"
+import { type Entry, type Trip, type DayLog, type TripWithDetails } from "@/lib/types"
 import { toast } from "sonner"
 import { format } from "date-fns"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 
-interface MapLocationWithDetails extends MapLocation {
+// Updated MapLocation interface to match Entry-based system
+interface MapLocationWithDetails {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  type: "visited" | "planned" | "favorite"
+  uid?: string
   trip?: Trip
   dayLog?: DayLog
   entry?: Entry
+  tripId?: string
+  isCustom?: boolean
 }
 
 export default function MapPage() {
@@ -30,16 +42,27 @@ export default function MapPage() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true)
   const [trips, setTrips] = React.useState<TripWithDetails[]>([])
   const [standaloneEntries, setStandaloneEntries] = React.useState<Entry[]>([])
-  const [customLocations, setCustomLocations] = React.useState<MapLocation[]>([])
+  const [customLocations, setCustomLocations] = React.useState<MapLocationWithDetails[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [showLocationDialog, setShowLocationDialog] = React.useState(false)
   const [selectedTrip, setSelectedTrip] = React.useState<string>("")
+
+  // Custom location state
+  const [locationSearchQuery, setLocationSearchQuery] = React.useState("")
+  const [isLocationSearching, setIsLocationSearching] = React.useState(false)
+  const [isAddingLocation, setIsAddingLocation] = React.useState(false)
+
+  
+  // Location modal state
+  const [selectedLocation, setSelectedLocation] = React.useState<MapLocationWithDetails | null>(null)
+  const [showLocationModal, setShowLocationModal] = React.useState(false)
   
   const [newLocation, setNewLocation] = React.useState({
     name: "",
     type: "visited" as "visited" | "planned" | "favorite",
     coordinates: { lat: 0, lng: 0 },
-    tripId: ""
+    tripId: "",
+    description: ""
   })
 
   React.useEffect(() => {
@@ -47,7 +70,7 @@ export default function MapPage() {
 
     setIsLoading(true)
 
-    // Load trips with their day logs and entries
+    // Load trips with their entries
     const tripsQuery = query(
       collection(db, "trips"),
       where("uid", "==", user.uid)
@@ -59,20 +82,9 @@ export default function MapPage() {
         ...doc.data()
       })) as Trip[]
 
-      // For each trip, load its day logs and recent entries
+      // For each trip, load its entries
       const tripsWithDetails: TripWithDetails[] = []
       for (const trip of tripsData) {
-        const dayLogsQuery = query(
-          collection(db, "dayLogs"),
-          where("tripId", "==", trip.id)
-        )
-        
-        const dayLogsSnapshot = await getDocs(dayLogsQuery)
-        const dayLogs = dayLogsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as DayLog[]
-
         const entriesQuery = query(
           collection(db, "entries"),
           where("tripId", "==", trip.id),
@@ -85,12 +97,16 @@ export default function MapPage() {
           ...doc.data()
         })) as Entry[]
 
-        // Get unique locations count
-        const locationCount = new Set(recentEntries.map(e => `${e.coordinates.lat},${e.coordinates.lng}`)).size
+        // Get unique locations count from entries
+        const locationCount = new Set(
+          recentEntries
+            .filter(e => e.coordinates && e.coordinates.lat && e.coordinates.lng)
+            .map(e => `${e.coordinates.lat},${e.coordinates.lng}`)
+        ).size
 
         tripsWithDetails.push({
           ...trip,
-          dayLogs,
+          dayLogs: [], // We'll load these separately if needed
           recentEntries: recentEntries.slice(0, 5), // Recent 5 entries
           locationCount
         })
@@ -99,7 +115,7 @@ export default function MapPage() {
       setTrips(tripsWithDetails)
     })
 
-    // Load standalone entries
+    // Load standalone entries (entries not part of any trip)
     const standaloneQuery = query(
       collection(db, "entries"),
       where("uid", "==", user.uid),
@@ -115,7 +131,7 @@ export default function MapPage() {
       setStandaloneEntries(standaloneData)
     })
 
-    // Load custom locations
+    // Load custom locations (user-created locations without entries)
     const customLocationsQuery = query(
       collection(db, "mapLocations"),
       where("uid", "==", user.uid),
@@ -126,7 +142,7 @@ export default function MapPage() {
       const customData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as MapLocation[]
+      })) as MapLocationWithDetails[]
       setCustomLocations(customData)
       setIsLoading(false)
     })
@@ -146,32 +162,54 @@ export default function MapPage() {
     }))
   }
 
+  const handleLocationClick = (location: MapLocationWithDetails) => {
+    setSelectedLocation(location)
+    setShowLocationModal(true)
+  }
+
   const handleAddLocation = async () => {
-    if (!user || !newLocation.name || !newLocation.coordinates.lat) {
+    if (!user || !newLocation.name.trim() || !newLocation.coordinates.lat) {
       toast.error("Please fill in all required fields and select a location")
       return
     }
-
+  
+    setIsAddingLocation(true)
     try {
-      await addDoc(collection(db, "mapLocations"), {
+      const locationData = {
         uid: user.uid,
-        name: newLocation.name,
+        name: newLocation.name.trim(),
         lat: newLocation.coordinates.lat,
         lng: newLocation.coordinates.lng,
         type: newLocation.type,
         tripId: newLocation.tripId || undefined,
+        description: newLocation.description?.trim() || undefined,
         isCustom: true,
-        createdAt: new Date().toISOString()
-      })
-
-      toast.success("Location added successfully!")
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+  
+      await addDoc(collection(db, "mapLocations"), locationData)
+      
+      toast.success(`Custom location "${newLocation.name}" added successfully!`)
       setShowLocationDialog(false)
-      setNewLocation({ name: "", type: "visited", coordinates: { lat: 0, lng: 0 }, tripId: "" })
+      
+      // Reset form
+      setNewLocation({
+        name: "",
+        type: "visited",
+        coordinates: { lat: 0, lng: 0 },
+        tripId: "",
+        description: ""
+      })
+      setLocationSearchQuery("")
     } catch (error) {
       console.error("Error adding location:", error)
-      toast.error("Failed to add location")
+      toast.error("Failed to add location. Please try again.")
+    } finally {
+      setIsAddingLocation(false)
     }
   }
+  
 
   const handleRemoveLocation = async (locationId: string) => {
     try {
@@ -183,29 +221,31 @@ export default function MapPage() {
     }
   }
 
-  const getAllMapLocations = () => {
+  const getAllMapLocations = (): MapLocationWithDetails[] => {
     const locations: MapLocationWithDetails[] = []
 
-    // Add trip-based locations (grouped by trip)
+    // Add trip-based locations from entries
     trips.forEach(trip => {
       // Get unique locations from trip entries
       const tripLocations = new Map<string, Entry>()
       trip.recentEntries.forEach(entry => {
-        const key = `${entry.coordinates.lat},${entry.coordinates.lng}`
-        if (!tripLocations.has(key)) {
-          tripLocations.set(key, entry)
+        if (entry.coordinates && entry.coordinates.lat && entry.coordinates.lng) {
+          const key = `${entry.coordinates.lat},${entry.coordinates.lng}`
+          if (!tripLocations.has(key)) {
+            tripLocations.set(key, entry)
+          }
         }
       })
 
-      // Add trip locations
+      // Convert entries to map locations
       tripLocations.forEach(entry => {
         locations.push({
           id: `trip-${trip.id}-${entry.id}`,
           uid: user?.uid || "",
-          name: entry.location,
+          name: entry.location || entry.title,
           lat: entry.coordinates.lat,
           lng: entry.coordinates.lng,
-          type: "visited",
+          type: "visited", // Trip entries are considered visited
           tripId: trip.id,
           trip,
           entry,
@@ -216,16 +256,18 @@ export default function MapPage() {
 
     // Add standalone entry locations
     standaloneEntries.forEach(entry => {
-      locations.push({
-        id: `standalone-${entry.id}`,
-        uid: user?.uid || "",
-        name: entry.location,
-        lat: entry.coordinates.lat,
-        lng: entry.coordinates.lng,
-        type: "visited",
-        entry,
-        isCustom: false
-      })
+      if (entry.coordinates && entry.coordinates.lat && entry.coordinates.lng) {
+        locations.push({
+          id: `standalone-${entry.id}`,
+          uid: user?.uid || "",
+          name: entry.location || entry.title,
+          lat: entry.coordinates.lat,
+          lng: entry.coordinates.lng,
+          type: "visited", // Standalone entries are visited
+          entry,
+          isCustom: false
+        })
+      }
     })
 
     // Add custom locations
@@ -252,6 +294,16 @@ export default function MapPage() {
       }))
     }
     return getAllMapLocations().filter(loc => loc.type === type)
+  }
+
+  const getTripColor = (status: string) => {
+    switch (status) {
+      case "completed": return "#d4af37" // Gold
+      case "active": return "#4c6b54" // Forest green
+      case "planned": return "#b22222" // Dark red
+      case "draft": return "#8B7355" // Brown
+      default: return "#d4af37"
+    }
   }
 
   if (isLoading) {
@@ -284,67 +336,170 @@ export default function MapPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-display text-xl font-medium text-deepbrown">Travel Map</h2>
                 <div className="flex gap-2">
-                  <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="border-gold/30 bg-transparent">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="parchment border border-gold/20">
-                      <DialogHeader>
-                        <DialogTitle className="font-display text-deepbrown">Add Custom Location</DialogTitle>
-                      </DialogHeader>
+                <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="border-gold/30 bg-transparent">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl w-full bg-parchment border border-gold/20 shadow-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="font-display text-xl text-deepbrown">Add Custom Location</DialogTitle>
+                      <p className="text-sm text-deepbrown/70 mt-1">
+                        Create a custom location marker for places you want to remember or plan to visit
+                      </p>
+                    </DialogHeader>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Form Section */}
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="location-name">Location Name</Label>
-                          <Input
-                            id="location-name"
-                            placeholder="Enter location name"
+                          <Label htmlFor="location-name" className="text-deepbrown font-medium">
+                            Location Name *
+                          </Label>
+                          <Input 
+                            id="location-name" 
+                            placeholder="Enter a memorable name for this location" 
                             value={newLocation.name}
                             onChange={(e) => setNewLocation(prev => ({ ...prev, name: e.target.value }))}
-                            className="bg-parchment border-gold/30"
+                            className="bg-parchment border-gold/30 focus:border-gold/50"
                           />
                         </div>
+
                         <div className="space-y-2">
-                          <Label htmlFor="location-type">Type</Label>
+                          <Label htmlFor="location-type" className="text-deepbrown font-medium">
+                            Location Type
+                          </Label>
                           <Select 
                             value={newLocation.type} 
                             onValueChange={(value: any) => setNewLocation(prev => ({ ...prev, type: value }))}
                           >
-                            <SelectTrigger className="bg-parchment border-gold/30">
+                            <SelectTrigger className="bg-parchment border-gold/30 focus:border-gold/50">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="visited">Visited</SelectItem>
-                              <SelectItem value="planned">Planned</SelectItem>
-                              <SelectItem value="favorite">Favorite</SelectItem>
+                            <SelectContent className="bg-parchment border-gold/30">
+                              <SelectItem value="visited">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 rounded-full bg-[#d4af37]"></div>
+                                  <span>Visited - Places I've been to</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="planned">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 rounded-full bg-[#4c6b54]"></div>
+                                  <span>Planned - Places I want to visit</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="favorite">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 rounded-full bg-[#b22222]"></div>
+                                  <span>Favorite - Special places to remember</span>
+                                </div>
+                              </SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
+
                         <div className="space-y-2">
-                          <Label htmlFor="trip-assignment">Assign to Trip (Optional)</Label>
+                          <Label htmlFor="trip-assignment" className="text-deepbrown font-medium">
+                            Assign to Trip (Optional)
+                          </Label>
                           <Select 
                             value={newLocation.tripId} 
                             onValueChange={(value) => setNewLocation(prev => ({ ...prev, tripId: value }))}
                           >
-                            <SelectTrigger className="bg-parchment border-gold/30">
+                            <SelectTrigger className="bg-parchment border-gold/30 focus:border-gold/50">
                               <SelectValue placeholder="Select a trip..." />
                             </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">No trip</SelectItem>
+                            <SelectContent className="bg-parchment border-gold/30">
+                            <SelectItem value="none">
+                              <span className="text-deepbrown/70">No trip - Standalone location</span>
+                            </SelectItem>
                               {trips.map(trip => (
                                 <SelectItem key={trip.id} value={trip.id}>
-                                  {trip.name}
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-3 h-3 rounded-full" 
+                                      style={{ backgroundColor: getTripColor(trip.status) }}
+                                    ></div>
+                                    <span>{trip.name}</span>
+                                    <Badge variant="outline" className="ml-auto text-xs">
+                                      {trip.status}
+                                    </Badge>
+                                  </div>
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="h-[200px] rounded-lg overflow-hidden">
+
+                        <div className="space-y-2">
+                          <Label className="text-deepbrown font-medium">
+                            Location Description (Optional)
+                          </Label>
+                          <Textarea
+                            placeholder="Add notes about this location, why it's special, or what you plan to do there..."
+                            className="bg-parchment border-gold/30 focus:border-gold/50 min-h-[80px] resize-none"
+                            value={newLocation.description || ""}
+                            onChange={(e) => setNewLocation(prev => ({ ...prev, description: e.target.value }))}
+                          />
+                        </div>
+
+                        {/* Coordinates Display */}
+                        {newLocation.coordinates.lat !== 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-deepbrown font-medium">Coordinates</Label>
+                            <div className="bg-parchment-dark border border-gold/20 rounded-lg p-3">
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <span className="text-deepbrown/70">Latitude:</span>
+                                  <p className="font-mono text-deepbrown">{newLocation.coordinates.lat.toFixed(6)}</p>
+                                </div>
+                                <div>
+                                  <span className="text-deepbrown/70">Longitude:</span>
+                                  <p className="font-mono text-deepbrown">{newLocation.coordinates.lng.toFixed(6)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Search Integration */}
+                        <div className="space-y-2">
+                          <Label className="text-deepbrown font-medium">
+                            Search & Set Location
+                          </Label>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+                            <Input
+                              placeholder="Search for a place or click on the map"
+                              className="pl-9 bg-parchment border-gold/30 focus:border-gold/50"
+                              value={locationSearchQuery}
+                              onChange={(e) => setLocationSearchQuery(e.target.value)}
+                            />
+                            {isLocationSearching && (
+                              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gold" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Map Section */}
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-deepbrown font-medium">
+                            Select Location on Map
+                          </Label>
+                          <p className="text-xs text-deepbrown/70">
+                            Click anywhere on the map to set the exact coordinates for your custom location.
+                          </p>
+                        </div>
+                        
+                        <div className="h-[400px] rounded-xl overflow-hidden border-2 border-gold/20 shadow-lg">
                           <MapViewer
                             locations={newLocation.coordinates.lat ? [{
-                              id: 'new',
-                              name: newLocation.name,
+                              id: 'new-custom',
+                              name: newLocation.name || 'New Location',
                               lat: newLocation.coordinates.lat,
                               lng: newLocation.coordinates.lng,
                               type: newLocation.type,
@@ -352,20 +507,79 @@ export default function MapPage() {
                             }] : []}
                             onLocationSelect={handleLocationSelect}
                             interactive={true}
-                            zoom={2}
+                            center={newLocation.coordinates.lat ? newLocation.coordinates : { lat: 20, lng: 0 }}
+                            zoom={newLocation.coordinates.lat ? 10 : 2}
+                            showSearch={true}
+                            showControls={true}
                           />
                         </div>
+
+                        {/* Location Status */}
+                        {newLocation.coordinates.lat !== 0 ? (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="flex items-start gap-3">
+                              <MapPin className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-green-800">
+                                  ✓ Location Set Successfully
+                                </p>
+                                <p className="text-xs text-green-700 mt-1">
+                                  Ready to save your custom location marker
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                            <div className="flex items-start gap-3">
+                              <MapPin className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-amber-800">
+                                  Please Select a Location
+                                </p>
+                                <p className="text-xs text-amber-700 mt-1">
+                                  Click on the map or search for a place to set coordinates
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <DialogFooter>
+                    </div>
+
+                    <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gold/20">
+                      <div className="flex-1 text-left">
+                        <p className="text-xs text-deepbrown/70">
+                          * Required fields. Custom locations help you organize and remember important places.
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
                         <DialogClose asChild>
-                          <Button variant="outline">Cancel</Button>
+                          <Button variant="outline" className="border-gold/30 bg-transparent">
+                            Cancel
+                          </Button>
                         </DialogClose>
-                        <Button onClick={handleAddLocation} className="bg-gold hover:bg-gold/90">
-                          Add Location
+                        <Button 
+                          onClick={handleAddLocation} 
+                          disabled={!newLocation.name.trim() || newLocation.coordinates.lat === 0}
+                          className="bg-gold hover:bg-gold/90 text-deepbrown font-medium min-w-[120px]"
+                        >
+                          {isAddingLocation ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Adding...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Location
+                            </>
+                          )}
                         </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                      </div>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
                 </div>
               </div>
 
@@ -428,6 +642,16 @@ export default function MapPage() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: (trips.length + index) * 0.05 }}
                           className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer"
+                          onClick={() => handleLocationClick({
+                            id: `standalone-${entry.id}`,
+                            uid: user?.uid || "",
+                            name: entry.location || entry.title,
+                            lat: entry.coordinates?.lat || 0,
+                            lng: entry.coordinates?.lng || 0,
+                            type: "visited",
+                            entry,
+                            isCustom: false
+                          })}
                         >
                           <div className="w-8 h-8 rounded-full bg-forest/10 flex items-center justify-center">
                             <MapPin className="h-4 w-4 text-forest" />
@@ -450,6 +674,7 @@ export default function MapPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                       className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer group"
+                      onClick={() => handleLocationClick(location)}
                     >
                       <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center">
                         <MapPin
@@ -505,6 +730,7 @@ export default function MapPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                       className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer"
+                      onClick={() => handleLocationClick(location as MapLocationWithDetails)}
                     >
                       <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center">
                         <MapPin className="h-4 w-4 text-gold" />
@@ -525,6 +751,7 @@ export default function MapPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                       className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer"
+                      onClick={() => handleLocationClick(location as MapLocationWithDetails)}
                     >
                       <div className="w-8 h-8 rounded-full bg-forest/10 flex items-center justify-center">
                         <MapPin className="h-4 w-4 text-forest" />
@@ -545,6 +772,7 @@ export default function MapPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                       className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer group"
+                      onClick={() => handleLocationClick(location)}
                     >
                       <div className="w-8 h-8 rounded-full bg-deepbrown/10 flex items-center justify-center">
                         <MapPin
@@ -592,6 +820,7 @@ export default function MapPage() {
               locations={getAllMapLocations()} 
               trips={trips}
               selectedTripId={selectedTrip}
+              onLocationClick={handleLocationClick}
             />
 
             <div className="absolute bottom-6 left-6 z-10">
@@ -603,6 +832,20 @@ export default function MapPage() {
           </div>
         </div>
       </main>
+
+      {/* Location Modal */}
+      <LocationModal
+        isOpen={showLocationModal}
+        onClose={() => {
+          setShowLocationModal(false)
+          setSelectedLocation(null)
+        }}
+        entry={selectedLocation?.entry}
+        trip={selectedLocation?.trip}
+        locationName={selectedLocation?.name || ""}
+        coordinates={selectedLocation ? { lat: selectedLocation.lat, lng: selectedLocation.lng } : { lat: 0, lng: 0 }}
+        type={selectedLocation?.type}
+      />
     </div>
   )
 }

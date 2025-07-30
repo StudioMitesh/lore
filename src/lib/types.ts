@@ -55,6 +55,7 @@ export interface UserProfile {
     isDraft?: boolean
     isFavorite?: boolean
     isStandalone?: boolean
+    placeId?: string
   }
 
   export interface Trip {
@@ -253,3 +254,61 @@ export interface UserProfile {
     tripName?: string
     dayLogDate?: string
   }
+
+  export interface PlaceDetails {
+    placeId?: string;
+    name: string;
+    address: string;
+    city: string;
+    country: string;
+    coordinates: { lat: number; lng: number };
+    types: string[];
+    establishmentName?: string;
+    businessStatus?: string;
+    rating?: number;
+    photos?: string[];
+  }
+  
+  export interface AutocompletePrediction {
+    description: string;
+    placeId: string;
+    structuredFormatting: {
+      mainText: string;
+      secondaryText: string;
+    };
+    types: string[];
+  }
+
+  export interface AutocompletePredictionRaw {
+    fullText: string;
+    primaryText: string;
+    secondaryText?: string;
+    place?: {
+      id: string;
+    };
+    types?: string[];
+  }
+  
+  export interface NearbySearchOptions {
+    lat: number;
+    lng: number;
+    radius?: number;
+    includedTypes?: string[];
+    fieldMask?: string[];
+  }
+  
+  export interface PlaceTextSearchOptions {
+    textQuery: string;
+    fieldMask?: string[];
+  }
+  
+  export interface AutocompleteOptions {
+    input: string;
+    locationBias?: { latitude: number; longitude: number; radiusMeters?: number };
+  }
+
+  export interface AutocompleteResponse {
+    fullText: string
+    predictions: AutocompletePredictionRaw[];
+  }
+  
