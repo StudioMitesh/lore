@@ -52,7 +52,6 @@ export default function MapPage() {
   const [isLocationSearching, setIsLocationSearching] = React.useState(false)
   const [isAddingLocation, setIsAddingLocation] = React.useState(false)
 
-  
   // Location modal state
   const [selectedLocation, setSelectedLocation] = React.useState<MapLocationWithDetails | null>(null)
   const [showLocationModal, setShowLocationModal] = React.useState(false)
@@ -64,6 +63,12 @@ export default function MapPage() {
     tripId: "",
     description: ""
   })
+
+  const handleARViewClick = () => {
+    toast.info("AR mode coming soon!", {
+      description: "This feature is currently in development and will be available in a future update.",
+    })
+  }
 
   React.useEffect(() => {
     if (!user) return
@@ -342,7 +347,7 @@ export default function MapPage() {
                       <Plus className="h-4 w-4" />
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-4xl w-full bg-parchment border border-gold/20 shadow-2xl">
+                  <DialogContent className="max-w-[90vw] w-full max-h-[90vh] bg-parchment border border-gold/20 shadow-2xl overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="font-display text-xl text-deepbrown">Add Custom Location</DialogTitle>
                       <p className="text-sm text-deepbrown/70 mt-1">
@@ -584,12 +589,12 @@ export default function MapPage() {
               </div>
 
               <Tabs defaultValue="trips" className="w-full">
-                <TabsList className="bg-parchment-dark border border-gold/20 w-full">
-                  <TabsTrigger value="trips">Trips</TabsTrigger>
-                  <TabsTrigger value="all">All Locations</TabsTrigger>
-                  <TabsTrigger value="visited">Visited</TabsTrigger>
-                  <TabsTrigger value="planned">Planned</TabsTrigger>
-                  <TabsTrigger value="custom">Custom</TabsTrigger>
+                <TabsList className="bg-parchment-dark border border-gold/20 w-full grid grid-cols-5">
+                  <TabsTrigger value="trips" className="text-xs px-2 py-1">Trips</TabsTrigger>
+                  <TabsTrigger value="all" className="text-xs px-2 py-1">All</TabsTrigger>
+                  <TabsTrigger value="visited" className="text-xs px-2 py-1">Visited</TabsTrigger>
+                  <TabsTrigger value="planned" className="text-xs px-2 py-1">Planned</TabsTrigger>
+                  <TabsTrigger value="custom" className="text-xs px-2 py-1">Custom</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="trips" className="mt-4 space-y-2">
@@ -824,7 +829,10 @@ export default function MapPage() {
             />
 
             <div className="absolute bottom-6 left-6 z-10">
-              <AnimatedButton animationType="glow">
+              <AnimatedButton 
+                animationType="glow"
+                onClick={handleARViewClick}
+              >
                 <Grid className="mr-2 h-4 w-4" />
                 Toggle AR View
               </AnimatedButton>

@@ -49,39 +49,49 @@ export const getPlaceDetailsFromPlaceId = async (placeId: string): Promise<Place
 };
 
 export const searchPlaces = async (
-  query: string,
-  bias?: { lat: number; lng: number; radius?: number }
+    query: string,
+    bias?: { lat: number; lng: number; radius?: number }
 ): Promise<AutocompletePrediction[]> => {
-  await loadGoogleMapsApi();
-  const service = new window.google.maps.places.AutocompleteService();
+    await loadGoogleMapsApi();
 
-  const request: google.maps.places.AutocompletionRequest = {
-    input: query,
-    types: ['establishment', 'geocode']
-  };
+    const sessionToken = new window.google.maps.places.AutocompleteSessionToken();
+    const request: google.maps.places.AutocompleteRequest = {
+        input: query,
+        sessionToken,
+        types: ['establishment', 'geocode'],
+        fields: ['name', 'formatted_address', 'place_id', 'types']
+    };
 
-  if (bias) {
-    request.location = new window.google.maps.LatLng(bias.lat, bias.lng);
-    request.radius = bias.radius ?? 50000;
-  }
+    if (bias) {
+        request.location = new window.google.maps.LatLng(bias.lat, bias.lng);
+        request.radius = bias.radius ?? 50000;
+    }
 
-  const predictions = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
-    service.getPlacePredictions(request, (res, status) => {
-      if (status === window.google.maps.places.PlacesServiceStatus.OK && res) resolve(res);
-      else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) resolve([]);
-      else reject(new Error(`Autocomplete failed: ${status}`));
-    });
-  });
+    try {
+        const { AutocompleteService } = await window.google.maps.importLibrary("places") as any;
+        const service = new AutocompleteService();
+        
+        const predictions = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
+            service.getPlacePredictions(request, (res, status) => {
+                if (status === window.google.maps.places.PlacesServiceStatus.OK && res) resolve(res);
+                else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) resolve([]);
+                else reject(new Error(`Autocomplete failed: ${status}`));
+            });
+        });
 
-  return predictions.map((pred): AutocompletePrediction => ({
-    description: pred.description,
-    placeId: pred.place_id,
-    structuredFormatting: {
-      mainText: pred.structured_formatting.main_text,
-      secondaryText: pred.structured_formatting.secondary_text
-    },
-    types: pred.types
-  }));
+        return predictions.map((pred): AutocompletePrediction => ({
+        description: pred.description,
+        placeId: pred.place_id,
+        structuredFormatting: {
+            mainText: pred.structured_formatting?.main_text || '',
+            secondaryText: pred.structured_formatting?.secondary_text || ''
+        },
+        types: pred.types || []
+        }));
+    } catch (error) {
+        console.error("Error using new AutocompleteService:", error);
+        throw error;
+    }
 };
 
 export const getNearbyPlaces = async (

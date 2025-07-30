@@ -1,3 +1,4 @@
+// mapviewer.tsx
 "use client"
 
 import { useEffect, useRef, useState } from "react"
@@ -79,7 +80,7 @@ export function MapViewer({
     const initializeMap = async () => {
       try {
         await loadGoogleMapsApi()
-        const { Map } = await window.google.maps.importLibrary("maps") as any
+        const { Map } = await window.google.maps.importLibrary("maps")
         
         if (!mapRef.current) return
 
@@ -92,18 +93,6 @@ export function MapViewer({
           streetViewControl: showControls,
           fullscreenControl: showControls,
           zoomControl: showControls,
-          styles: [
-            {
-              featureType: "poi",
-              elementType: "labels",
-              stylers: [{ visibility: "off" }]
-            },
-            {
-              featureType: "transit",
-              elementType: "labels", 
-              stylers: [{ visibility: showTransit ? "on" : "off" }]
-            }
-          ]
         }
 
         const map = new Map(mapRef.current, mapOptions)
@@ -142,7 +131,7 @@ export function MapViewer({
           }
 
         // Initialize autocomplete service
-        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteSuggestion()
 
         setIsLoading(false)
       } catch (error) {
@@ -150,7 +139,7 @@ export function MapViewer({
         setIsLoading(false)
       }
     }
-
+  
     initializeMap()
   }, [center, zoom, interactive, onLocationSelect, showControls, showTraffic, showTransit])
 
@@ -166,17 +155,16 @@ export function MapViewer({
         radius: 50000
       } : undefined)
       
-      if (results.length > 0) {
-        setSearchResults(results)
-        setShowSearchResults(true)
-      }
+      setSearchResults(results)
+      setShowSearchResults(results.length > 0)
     } catch (error) {
       console.error("Search failed:", error)
+      setSearchResults([])
+      setShowSearchResults(false)
     } finally {
       setIsSearching(false)
     }
   }
-  
 
   // Handle search result selection
   const handleSearchResultSelect = async (result: AutocompletePrediction) => {
@@ -204,8 +192,6 @@ export function MapViewer({
       console.error("Failed to navigate to search result:", error)
     }
   }
-  
-
 
   // Get user's current location
   const getCurrentLocation = () => {
@@ -240,7 +226,7 @@ export function MapViewer({
     polylinesRef.current.clear()
 
     const createMarkers = async () => {
-      const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker") as any
+        const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker")
 
       // Group locations by trip
       const tripLocations = new Map<string, MapLocation[]>()
