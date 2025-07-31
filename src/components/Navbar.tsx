@@ -81,9 +81,14 @@ export function Navbar() {
             )
         })}
 
-        <AnimatedButton onClick={() => navigate('/new-entry')} animationType="glow" className="ml-4">
-            <Plus className="mr-1 h-4 w-4" />
+        <AnimatedButton onClick={() => navigate('/new-entry')} animationType="glow" className="ml-1">
+            <Plus className="mr-1 h-4 w-2" />
             New Entry
+        </AnimatedButton>
+
+        <AnimatedButton onClick={() => navigate('/new-trip')} animationType="glow" className="ml-1">
+            <Plus className="mr-1 h-4 w-2" />
+            New Trip
         </AnimatedButton>
 
         <Button onClick={handleLogout} variant="outline" className="ml-4 border-gold/30">

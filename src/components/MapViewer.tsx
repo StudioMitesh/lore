@@ -78,7 +78,7 @@ export function MapViewer({
   const [showTraffic, setShowTraffic] = useState(false)
   const [showTransit, setShowTransit] = useState(false)
   const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null)
-  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isInputFocused, _setIsInputFocused] = useState(false);
 
 
   // Memoize current map center for search bias
