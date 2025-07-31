@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { motion } from "framer-motion"
-import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive, Search, Loader2 } from "lucide-react"
+import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive, Search } from "lucide-react"
 import { collection, addDoc, doc, updateDoc, getDoc } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { Navbar } from "@/components/Navbar"
@@ -16,7 +16,6 @@ import { AnimatedButton } from "@/components/ui/animated-button"
 import { MapViewer } from "@/components/MapViewer"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { db, storage } from "@/api/firebase"
 import { useAuth } from '@/context/useAuth'
@@ -24,7 +23,7 @@ import { type Entry, type UserProfile, type AutocompletePrediction } from "@/lib
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
 import { EntryImages } from "@/components/EntryImages"
-import { getNearbyPlaces, searchPlaces, getPlaceDetails, getPlaceDetailsFromPlaceId } from "@/services/geocoding"
+import { getNearbyPlaces, getPlaceDetails, getPlaceDetailsFromPlaceId, getAutocompleteSuggestions } from "@/services/geocoding"
 
 
 interface FormData {
@@ -61,11 +60,14 @@ export default function NewEntryPage() {
   const [locationSelected, setLocationSelected] = React.useState(false)
 
   // Search and autocomplete state
-  const [searchQuery, setSearchQuery] = React.useState("")
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const [isInputFocused, setIsInputFocused] = React.useState(false);
+  const [searchValue, setSearchValue] = React.useState("")
   const [searchResults, setSearchResults] = React.useState<AutocompletePrediction[]>([])
   const [isSearching, setIsSearching] = React.useState(false)
   const [showSearchResults, setShowSearchResults] = React.useState(false)
-  const [searchDebounceTimer, setSearchDebounceTimer] = React.useState<NodeJS.Timeout | null>(null)
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const sessionTokenRef = React.useRef<google.maps.places.AutocompleteSessionToken | null>(null);
 
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -73,71 +75,111 @@ export default function NewEntryPage() {
 
   // Enhanced search functionality
   // Update the handleSearchInputChange function
-const handleSearchInputChange = async (value: string) => {
-  setSearchQuery(value);
-  
-  // Clear existing timer
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer);
-  }
 
-  // Set new timer for debounced search
-  const timer = setTimeout(async () => {
-    if (value.trim().length >= 3) {
-      setIsSearching(true);
-      try {
-        const results = await searchPlaces(value, formData.coordinates.lat !== 0 ? {
+  const performSearch = React.useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+  
+    setIsSearching(true);
+    
+    try {
+      const results = await getAutocompleteSuggestions(
+        query,
+        sessionTokenRef.current || undefined,
+        formData.coordinates.lat !== 0 ? {
           lat: formData.coordinates.lat,
           lng: formData.coordinates.lng,
           radius: 50000
-        } : undefined);
-        
-        setSearchResults(results);
-        setShowSearchResults(results.length > 0);
-      } catch (error) {
-        console.error('Search failed:', error);
-        setSearchResults([]);
-        toast.error("Failed to search for places");
-      } finally {
-        setIsSearching(false);
-      }
-    } else {
+        } : undefined
+      );
+      
+      setSearchResults(results);
+      setShowSearchResults(results.length > 0);
+    } catch (error) {
+      console.error("Search failed:", error);
       setSearchResults([]);
       setShowSearchResults(false);
+    } finally {
+      setIsSearching(false);
     }
-  }, 300);
+  }, [formData.coordinates]);
 
-  setSearchDebounceTimer(timer);
-};
-
-// Update the handlePlaceSelect function
-const handlePlaceSelect = async (prediction: AutocompletePrediction) => {
-  setIsSearching(true);
-  try {
-    const placeDetails = await getPlaceDetailsFromPlaceId(prediction.placeId);
+  const handleSearchInput = React.useCallback((value: string) => {
+    setSearchValue(value);
     
-    if (!placeDetails) {
-      throw new Error('No place details found');
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
-
-    handleInputChange('location', placeDetails.name);
-    handleInputChange('country', placeDetails.country);
-    handleInputChange('coordinates', placeDetails.coordinates);
-    handleInputChange('placeId', placeDetails.placeId);
-    
-    setSearchQuery(placeDetails.name);
-    setLocationSelected(true);
-    setShowSearchResults(false);
-    
-    toast.success(`Location set to ${placeDetails.name}`);
-  } catch (error) {
-    console.error('Failed to get place details:', error);
-    toast.error('Failed to load place details');
-  } finally {
-    setIsSearching(false);
-  }
-};
   
+    // Set new timeout for debounced search
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(value);
+    }, 300);
+  }, [performSearch]);
+
+  const handleSearchResultSelect = React.useCallback(async (result: AutocompletePrediction) => {
+    try {
+      const placeDetails = await getPlaceDetailsFromPlaceId(result.placeId);
+      
+      if (!placeDetails.coordinates) {
+        throw new Error('No coordinates found for this place');
+      }
+      
+      const { lat, lng } = placeDetails.coordinates;
+      
+      setSearchValue(placeDetails.name);
+      setShowSearchResults(false);
+      
+      if (window.google?.maps?.places?.AutocompleteSessionToken) {
+        sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+      }
+      
+      // Update form data
+      setFormData(prev => ({
+        ...prev,
+        location: placeDetails.name,
+        country: placeDetails.country || "",
+        coordinates: { lat, lng },
+        placeId: placeDetails.placeId
+      }));
+      
+      setLocationSelected(true);
+      toast.success(`Location set to ${placeDetails.name}`);
+      
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 0);
+    } catch (error) {
+      console.error("Failed to navigate to search result:", error);
+      toast.error('Failed to load place details');
+    }
+  }, []);
+
+  const clearSearch = React.useCallback(() => {
+    setSearchValue("")
+    setSearchResults([])
+    setShowSearchResults(false)
+  }, [])
+
+  // Handle manual search trigger
+  const handleManualSearch = React.useCallback(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    performSearch(searchValue)
+  }, [searchValue, performSearch])
+
+  const handleSearchContainerClick = () => {
+    if (!isInputFocused && searchInputRef.current) {
+      searchInputRef.current.focus();
+      const valueLength = searchInputRef.current.value.length;
+      searchInputRef.current.setSelectionRange(valueLength, valueLength);
+    }
+  };
 
 
   const handleAddImage = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,12 +237,15 @@ const handlePlaceSelect = async (prediction: AutocompletePrediction) => {
         const placeDetails = await getPlaceDetails(location.lat, location.lng);
         
         if (placeDetails) {
-          handleInputChange('coordinates', { lat: location.lat, lng: location.lng });
-          handleInputChange('location', placeDetails.name);
-          handleInputChange('country', placeDetails.country);
-          handleInputChange('placeId', placeDetails.placeId);
+          setFormData(prev => ({
+            ...prev,
+            coordinates: { lat: location.lat, lng: location.lng },
+            location: placeDetails.name,
+            country: placeDetails.country || "",
+            placeId: placeDetails.placeId
+          }));
           
-          setSearchQuery(placeDetails.name);
+          setSearchValue(placeDetails.name);
           setLocationSelected(true);
           toast.success(`Location set to ${placeDetails.name}`);
           return;
@@ -209,32 +254,38 @@ const handlePlaceSelect = async (prediction: AutocompletePrediction) => {
         console.log('Falling back to nearby places search', error);
       }
   
-      // Fallback to nearby places search
       const nearbyPlaces = await getNearbyPlaces(location.lat, location.lng, 50);
       
       if (nearbyPlaces.length > 0) {
         const placeDetails = nearbyPlaces[0];
         
-        handleInputChange('coordinates', { lat: location.lat, lng: location.lng });
-        handleInputChange('location', placeDetails.name);
-        handleInputChange('country', placeDetails.country);
-        handleInputChange('placeId', placeDetails.placeId);
+        setFormData(prev => ({
+          ...prev,
+          coordinates: { lat: location.lat, lng: location.lng },
+          location: placeDetails.name,
+          country: placeDetails.country || "",
+          placeId: placeDetails.placeId
+        }));
         
-        setSearchQuery(placeDetails.name);
+        setSearchValue(placeDetails.name);
         setLocationSelected(true);
         toast.success(`Location set to ${placeDetails.name}`);
         return;
       }
   
-      // Final fallback to basic address parsing
       if (location.address) {
         const addressParts = location.address.split(', ');
         const country = addressParts[addressParts.length - 1] || "";
         const city = addressParts[0] || location.address;
         
-        handleInputChange('coordinates', { lat: location.lat, lng: location.lng });
-        handleInputChange('location', city);
-        handleInputChange('country', country);
+        setFormData(prev => ({
+          ...prev,
+          coordinates: { lat: location.lat, lng: location.lng },
+          location: city,
+          country: country
+        }));
+        
+        setSearchValue(city);
         setLocationSelected(true);
         toast.success("Location set successfully!");
       }
@@ -243,6 +294,10 @@ const handlePlaceSelect = async (prediction: AutocompletePrediction) => {
       toast.error('Failed to set location details');
     } finally {
       setIsSearching(false);
+      
+      if (window.google?.maps?.places?.AutocompleteSessionToken) {
+        sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+      }
     }
   };
   
@@ -398,12 +453,13 @@ const handlePlaceSelect = async (prediction: AutocompletePrediction) => {
 
   React.useEffect(() => {
     return () => {
-      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
-      if (searchDebounceTimer) {
-        clearTimeout(searchDebounceTimer)
+      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
       }
-    }
-  }, [imagePreviewUrls, searchDebounceTimer])
+    };
+  }, [imagePreviewUrls]);
 
   return (
     <div className="min-h-screen flex flex-col parchment-texture">
@@ -507,76 +563,120 @@ const handlePlaceSelect = async (prediction: AutocompletePrediction) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="location-search">Location * (Search or click on map)</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="location-search">Location * (Search or click on map)</Label>
+                  <div 
+                    className="relative search-input-container"
+                    onClick={handleSearchContainerClick}
+                  >
                     <Popover open={showSearchResults} onOpenChange={setShowSearchResults}>
                       <PopoverTrigger asChild>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+                        <div>
                           <Input
+                            ref={searchInputRef}
                             id="location-search"
                             placeholder="Search for a place..."
                             className="pl-9 bg-parchment border-gold/30"
-                            value={searchQuery}
-                            onChange={(e) => handleSearchInputChange(e.target.value)}
-                            onFocus={() => {
-                              if (searchQuery && searchResults.length > 0) {
+                            value={searchValue}
+                            onChange={(e) => {
+                              handleSearchInput(e.target.value);
+                              if (e.target.value) {
                                 setShowSearchResults(true);
                               }
                             }}
-                            onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
+                            onFocus={() => {
+                              setIsInputFocused(true);
+                              if (searchValue && searchResults.length > 0) {
+                                setShowSearchResults(true);
+                              }
+                            }}
+                            onBlur={() => {
+                              setIsInputFocused(false);
+                              setTimeout(() => setShowSearchResults(false), 200);
+                            }}
                           />
-                          {isSearching ? (
-                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gold" />
-                          ) : (
-                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
-                          )}
                         </div>
                       </PopoverTrigger>
                       <PopoverContent 
-                        className="p-0 w-[400px]" 
+                        className="p-0 w-full bg-white/98 backdrop-blur-sm shadow-2xl border-2 border-gray-200 rounded-xl mt-1" 
                         align="start"
                         onPointerDownOutside={(e) => {
-                          if (!(e.target as HTMLElement).closest('#location-search')) {
+                          if (!(e.target as HTMLElement).closest('.search-input-container')) {
                             setShowSearchResults(false);
                           }
                         }}
                         onOpenAutoFocus={(e) => e.preventDefault()}
                         onCloseAutoFocus={(e) => e.preventDefault()}
                       >
-                        <Command>
-                          <CommandList>
-                            {searchResults.length === 0 && searchQuery.length >= 3 && !isSearching && (
-                              <CommandEmpty>No places found.</CommandEmpty>
-                            )}
-                            <CommandGroup>
-                              {searchResults.map((result) => (
-                                <CommandItem
-                                  key={result.placeId}
-                                  value={result.description}
-                                  onSelect={() => handlePlaceSelect(result)}
-                                  className="flex flex-col items-start py-3 cursor-pointer"
-                                  onMouseDown={(e) => e.preventDefault()}
-                                >
-                                  <div className="font-medium">{result.structuredFormatting.mainText}</div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {result.structuredFormatting.secondaryText}
-                                  </div>
-                                  <div className="flex gap-1 mt-1">
-                                    {result.types?.slice(0, 2).map(type => (
-                                      <Badge key={type} variant="secondary" className="text-xs">
-                                        {type.replace(/_/g, ' ')}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
+                        <div className="max-h-80 overflow-y-auto">
+                          {searchResults.length === 0 && searchValue && !isSearching ? (
+                            <div className="p-4 text-center text-gray-500">
+                              No results found for "{searchValue}"
+                            </div>
+                          ) : (
+                            searchResults.map((result, index) => (
+                              <div
+                                key={`${result.placeId}-${index}`}
+                                className="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  handleSearchResultSelect(result);
+                                  setShowSearchResults(false);
+                                }}
+                              >
+                                <div className="font-semibold text-gray-800 text-base mb-1">
+                                  {result.structuredFormatting.mainText}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {result.structuredFormatting.secondaryText}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </PopoverContent>
                     </Popover>
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-deepbrown/50" />
+                    {isSearching && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                      </div>
+                    )}
+                    {searchValue && !isSearching && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearSearch();
+                          searchInputRef.current?.focus();
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xl font-bold w-6 h-6 flex items-center justify-center"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 bg-white/95 backdrop-blur-sm border-2 border-gray-200 shadow-sm hover:bg-gray-50"
+                    onClick={() => {
+                      if (searchValue.trim()) {
+                        handleManualSearch();
+                        searchInputRef.current?.focus();
+                        setTimeout(() => {
+                          if (searchInputRef.current) {
+                            const len = searchInputRef.current.value.length;
+                            searchInputRef.current.setSelectionRange(len, len);
+                          }
+                        }, 0);
+                      }
+                    }}
+                    disabled={!searchValue.trim() || isSearching}
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    Search
+                  </Button>
+                </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="country">Country</Label>
