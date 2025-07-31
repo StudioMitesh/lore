@@ -309,7 +309,7 @@ export function MapViewer({
   
       // Handle clustering or direct marker placement
       if (enableClustering && allMarkers.length > 10) {
-        await mapService.clusterMarkers(allMarkers);
+        await mapService.initMarkerClusterer();
       } else {
         // Place markers directly on map
         allMarkers.forEach(marker => {

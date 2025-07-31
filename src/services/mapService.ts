@@ -272,7 +272,6 @@ export class MapService {
     if (!this.mapInstance) return;
     
     if (animate) {
-      // Smooth zoom animation
       const currentZoom = this.mapInstance.getZoom() || 10;
       const steps = Math.abs(zoom - currentZoom);
       const stepSize = (zoom - currentZoom) / Math.max(steps, 1);
@@ -302,13 +301,19 @@ export class MapService {
       this.markerClusterer.setMap(null);
     }
     
-    await window.google.maps.importLibrary("marker");
+    const { AdvancedMarkerElement } = await google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
+    const { MarkerClusterer, SuperClusterAlgorithm } = await import("@googlemaps/markerclusterer");
+    
+    interface Cluster {
+      count: number;
+      position: google.maps.LatLng;
+    }
     
     this.markerClusterer = new MarkerClusterer({
       map: this.mapInstance,
       markers: [],
       renderer: {
-        render: ({ count }) => {
+        render: ({ count, position }: Cluster) => {
           const svg = `
             <svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
               <circle cx="25" cy="25" r="20" fill="#d4af37" stroke="white" stroke-width="3" opacity="0.9"/>
@@ -320,29 +325,16 @@ export class MapService {
           clusterMarker.innerHTML = svg;
           clusterMarker.className = 'cluster-marker transform transition-all hover:scale-110 cursor-pointer';
           
-          return clusterMarker;
+          return new AdvancedMarkerElement({
+            position,
+            content: clusterMarker
+          });
         }
       },
-      algorithm: new MarkerClusterer.GridAlgorithm({ gridSize: 60 })
+      algorithm: new SuperClusterAlgorithm({
+        maxZoom: 15,
+      })
     });
-  }
-
-  async clusterMarkers(markers: google.maps.marker.AdvancedMarkerElement[]) {
-    if (!this.mapInstance) return;
-    
-    if (!this.markerClusterer) {
-      await this.initMarkerClusterer();
-    }
-    
-    if (this.markerClusterer) {
-      this.markerClusterer.clearMarkers();
-      this.markerClusterer.addMarkers(markers);
-    } else {
-      // Fallback: add markers directly to map
-      markers.forEach(marker => {
-        marker.map = this.mapInstance;
-      });
-    }
   }
 
   getTripColor(status: string) {
