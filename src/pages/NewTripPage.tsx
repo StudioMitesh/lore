@@ -191,12 +191,12 @@ export default function NewTripPage() {
     <div className="min-h-screen flex flex-col parchment-texture">
       <Navbar />
       
-      <main className="flex-1 pt-16 sm:pt-20 lg:pt-24 pb-8 sm:pb-12 lg:pb-16">
-        <div className="container max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
+      <main className="flex-1 pt-14 sm:pt-20 lg:pt-24 pb-6 sm:pb-12 lg:pb-16">
+        <div className="container max-w-4xl mx-auto px-3 sm:px-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-5 sm:mb-8">
             <div>
-              <h1 className="font-display text-2xl sm:text-3xl font-bold text-deepbrown">Create New Trip</h1>
-              <p className="text-sm sm:text-base text-deepbrown/70 mt-1">Plan and organize your next adventure</p>
+              <h1 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold text-deepbrown">Create New Trip</h1>
+              <p className="text-xs sm:text-sm lg:text-base text-deepbrown/70 mt-1 sm:mt-1.5">Plan and organize your next adventure</p>
             </div>
             <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
               <Button 
@@ -230,15 +230,15 @@ export default function NewTripPage() {
             </div>
           </div>
 
-          <div className="space-y-6 sm:space-y-8">
+          <div className="space-y-4 sm:space-y-6 lg:space-y-8">
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader>
-                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
-                  <Plane className="h-4 w-4 sm:h-5 sm:w-5" />
+              <CardHeader className="pb-3 sm:pb-4">
+                <CardTitle className="text-base sm:text-lg lg:text-xl text-deepbrown flex items-center gap-1.5 sm:gap-2">
+                  <Plane className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-5 lg:w-5" />
                   Trip Details
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name" className="text-sm sm:text-base">Trip Name *</Label>
                   <Input
@@ -261,7 +261,7 @@ export default function NewTripPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="startDate" className="text-sm sm:text-base">Start Date *</Label>
                     <div className="relative">
@@ -333,8 +333,8 @@ export default function NewTripPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <CardTitle className="text-lg sm:text-xl text-deepbrown">Cover Photo</CardTitle>
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-3 sm:pb-4">
+                <CardTitle className="text-base sm:text-lg lg:text-xl text-deepbrown">Cover Photo</CardTitle>
                 <div>
                   <input
                     type="file"
@@ -365,7 +365,7 @@ export default function NewTripPage() {
                     <img
                       src={coverImagePreview}
                       alt="Trip cover"
-                      className="w-full h-48 sm:h-64 object-cover rounded-lg border border-gold/20"
+                      className="w-full h-40 sm:h-48 lg:h-64 object-cover rounded-lg border border-gold/20"
                     />
                     <Button
                       variant="destructive"
@@ -389,13 +389,13 @@ export default function NewTripPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader>
-                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
-                  <Tag className="h-4 w-4 sm:h-5 sm:w-5" />
+              <CardHeader className="pb-3 sm:pb-4">
+                <CardTitle className="text-base sm:text-lg lg:text-xl text-deepbrown flex items-center gap-1.5 sm:gap-2">
+                  <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-5 lg:w-5" />
                   Tags
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4">
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     placeholder="Add a tag (e.g., adventure, culture, family)"
@@ -437,13 +437,13 @@ export default function NewTripPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader>
-                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
-                  <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+              <CardHeader className="pb-3 sm:pb-4">
+                <CardTitle className="text-base sm:text-lg lg:text-xl text-deepbrown flex items-center gap-1.5 sm:gap-2">
+                  <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-5 lg:w-5" />
                   Travel Companions
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4">
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     placeholder="Add a travel companion name"
@@ -485,7 +485,7 @@ export default function NewTripPage() {
               </CardContent>
             </Card>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gold/20">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gold/20">
               <Button 
                 variant="outline" 
                 className="border-gold/30 bg-transparent"

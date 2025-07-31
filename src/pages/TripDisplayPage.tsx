@@ -212,21 +212,21 @@ export default function TripDisplayPage() {
     <div className="min-h-screen flex flex-col parchment-texture">
       <Navbar />
       
-      <main className="flex-1 pt-24 pb-16">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
-            <div className="flex items-center gap-4 mb-6">
+      <main className="flex-1 pt-16 sm:pt-20 lg:pt-24 pb-8 sm:pb-12 lg:pb-16">
+        <div className="container mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => navigate(-1)}
-                className="border-gold/30 bg-transparent"
+                className="border-gold/30 bg-transparent h-8 w-8 sm:h-9 sm:w-9"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="font-display text-3xl font-bold text-deepbrown">
+                <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2">
+                  <h1 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold text-deepbrown">
                     {trip.name}
                   </h1>
                   <Badge className={getStatusColor(trip.status)}>
@@ -234,7 +234,7 @@ export default function TripDisplayPage() {
                     {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
                   </Badge>
                 </div>
-                <div className="flex flex-wrap items-center gap-4 text-deepbrown/70">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-deepbrown/70">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-gold" />
                     <span>{formatDateRange()}</span>
@@ -264,24 +264,24 @@ export default function TripDisplayPage() {
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 sm:gap-2">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={handleFavoriteToggle}
                   disabled={isTogglingFavorite}
-                  className="border-gold/30 bg-transparent"
+                  className="border-gold/30 bg-transparent h-8 w-8 sm:h-9 sm:w-9"
                 >
                   <Heart 
-                    className={`h-4 w-4 ${trip.isFavorite ? 'fill-red-500 text-red-500' : 'text-deepbrown'}`} 
+                    className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${trip.isFavorite ? 'fill-red-500 text-red-500' : 'text-deepbrown'}`} 
                   />
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
-                  className="border-gold/30 bg-transparent"
+                  className="border-gold/30 bg-transparent h-8 w-8 sm:h-9 sm:w-9"
                 >
-                  <Share2 className="h-4 w-4" />
+                  <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
                 {isOwner && (
                   <Button
@@ -297,7 +297,7 @@ export default function TripDisplayPage() {
             </div>
 
             {trip.coverImageUrl && (
-              <div className="relative h-64 md:h-80 rounded-2xl overflow-hidden mb-6">
+              <div className="relative h-48 sm:h-64 lg:h-80 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6">
                 <img
                   src={trip.coverImageUrl}
                   alt={trip.name}
@@ -308,14 +308,14 @@ export default function TripDisplayPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 sm:gap-8">
             <div className="space-y-8">
               {trip.description && (
                 <Card className="border-gold/20 bg-parchment-light">
-                  <CardHeader>
-                    <CardTitle className="text-xl text-deepbrown">About This Trip</CardTitle>
+                  <CardHeader className="pb-3 sm:pb-4">
+                    <CardTitle className="text-lg sm:text-xl text-deepbrown">About This Trip</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="text-sm sm:text-base">
                     <p className="text-deepbrown/80 leading-relaxed whitespace-pre-wrap">
                       {trip.description}
                     </p>
@@ -324,11 +324,11 @@ export default function TripDisplayPage() {
               )}
 
               <div>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-display text-2xl font-semibold text-deepbrown">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <h2 className="font-display text-xl sm:text-2xl font-semibold text-deepbrown">
                     Trip Entries
                     {tripEntries.length > 0 && (
-                      <span className="text-lg font-normal text-deepbrown/70 ml-2">
+                      <span className="text-base sm:text-lg font-normal text-deepbrown/70 ml-1.5 sm:ml-2">
                         ({tripEntries.length})
                       </span>
                     )}
@@ -367,12 +367,12 @@ export default function TripDisplayPage() {
                   </div>
                 ) : (
                   <Card className="border-gold/20 bg-parchment-light">
-                    <CardContent className="text-center py-12">
-                      <BookOpen className="h-16 w-16 text-gold/50 mx-auto mb-4" />
-                      <h3 className="font-display text-xl font-medium text-deepbrown mb-2">
+                    <CardContent className="text-center py-8 sm:py-12">
+                      <BookOpen className="h-12 w-12 sm:h-16 sm:w-16 text-gold/50 mx-auto mb-3 sm:mb-4" />
+                      <h3 className="font-display text-lg sm:text-xl font-medium text-deepbrown mb-1.5 sm:mb-2">
                         No entries yet
                       </h3>
-                      <p className="text-deepbrown/70 mb-6">
+                      <p className="text-sm sm:text-base text-deepbrown/70 mb-4 sm:mb-6">
                         Start documenting your adventure by adding your first entry
                       </p>
                       {isOwner && (
@@ -391,19 +391,19 @@ export default function TripDisplayPage() {
 
               {trip.dayLogs && trip.dayLogs.length > 0 && (
                 <div>
-                  <h2 className="font-display text-2xl font-semibold text-deepbrown mb-6">
+                  <h2 className="font-display text-xl sm:text-2xl font-semibold text-deepbrown mb-4 sm:mb-6">
                     Daily Timeline
                   </h2>
                   <div className="space-y-4">
                     {trip.dayLogs.map((dayLog) => (
                       <Card key={dayLog.id} className="border-gold/20 bg-parchment-light">
-                        <CardContent className="p-6">
+                        <CardContent className="p-4 sm:p-6">
                           <div className="flex items-center justify-between mb-4">
                             <div>
-                              <h3 className="font-display text-lg font-medium text-deepbrown">
+                              <h3 className="font-display text-base sm:text-lg font-medium text-deepbrown">
                                 {format(new Date(dayLog.date), "EEEE, MMMM d, yyyy")}
                               </h3>
-                              <div className="flex items-center gap-4 text-sm text-deepbrown/70 mt-1">
+                              <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-deepbrown/70 mt-0.5 sm:mt-1">
                                 <div className="flex items-center gap-1">
                                   <MapPin className="h-3 w-3" />
                                   <span>{dayLog.location}, {dayLog.country}</span>

@@ -238,47 +238,83 @@ export default function MapPage() {
 
   useEffect(() => {
     const processTripsIntoRoutes = async () => {
-      if (!trips.length) return;
+      if (!trips.length) {
+        setTripRoutes([]);
+        setMapStats(null);
+        return;
+      }
   
       const routes: TripRoute[] = [];
       
       for (const trip of trips) {
-        const tripEntries = await getDocs(query(
-          collection(db, "entries"),
-          where("tripId", "==", trip.id),
-          where("isDraft", "!=", true),
-          orderBy("timestamp", "asc")
-        ));
+        try {
+          const tripEntries = await getDocs(query(
+            collection(db, "entries"),
+            where("tripId", "==", trip.id),
+            where("isDraft", "!=", true),
+            orderBy("timestamp", "asc")
+          ));
   
-        const entries = tripEntries.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Entry[];
+          const entries = tripEntries.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Entry[];
   
-        const locations: MapLocationWithDetails[] = entries
-          .filter(entry => entry.coordinates?.lat && entry.coordinates?.lng)
-          .map(entry => ({
-            id: `trip-${trip.id}-${entry.id}`,
-            uid: entry.uid,
-            name: entry.location || entry.title,
-            lat: entry.coordinates.lat,
-            lng: entry.coordinates.lng,
-            type: "visited" as const,
-            tripId: trip.id,
-            trip,
-            entry,
-            isCustom: false
-          }));
+          // Filter and deduplicate locations
+          const uniqueLocations = new Map<string, Entry>();
+          entries
+            .filter(entry => entry.coordinates?.lat && entry.coordinates?.lng)
+            .forEach(entry => {
+              const key = `${entry.coordinates.lat.toFixed(6)},${entry.coordinates.lng.toFixed(6)}`;
+              if (!uniqueLocations.has(key) || 
+                  new Date(entry.timestamp) > new Date(uniqueLocations.get(key)!.timestamp)) {
+                uniqueLocations.set(key, entry);
+              }
+            });
   
-        if (locations.length > 0) {
-          routes.push({
-            tripId: trip.id,
-            tripName: trip.name,
-            locations,
-            status: trip.status,
-            totalDistance: 0,
-            totalDuration: 0
-          });
+          const locations: MapLocationWithDetails[] = Array.from(uniqueLocations.values())
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            .map(entry => ({
+              id: `trip-${trip.id}-${entry.id}`,
+              uid: entry.uid,
+              name: entry.location || entry.title,
+              lat: entry.coordinates.lat,
+              lng: entry.coordinates.lng,
+              type: "visited" as const,
+              tripId: trip.id,
+              trip,
+              entry,
+              isCustom: false
+            }));
+  
+          if (locations.length > 0) {
+            // Calculate route distance (rough estimate)
+            let totalDistance = 0;
+            for (let i = 1; i < locations.length; i++) {
+              const prev = locations[i - 1];
+              const curr = locations[i];
+              // Haversine formula for distance calculation
+              const R = 6371; // Earth's radius in km
+              const dLat = (curr.lat - prev.lat) * Math.PI / 180;
+              const dLon = (curr.lng - prev.lng) * Math.PI / 180;
+              const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                        Math.cos(prev.lat * Math.PI / 180) * Math.cos(curr.lat * Math.PI / 180) *
+                        Math.sin(dLon/2) * Math.sin(dLon/2);
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              totalDistance += R * c;
+            }
+  
+            routes.push({
+              tripId: trip.id,
+              tripName: trip.name,
+              locations,
+              status: trip.status,
+              totalDistance: Math.round(totalDistance),
+              totalDuration: 0 // You can calculate this based on entry timestamps if needed
+            });
+          }
+        } catch (error) {
+          console.error(`Error processing trip ${trip.id}:`, error);
         }
       }
   
@@ -288,6 +324,7 @@ export default function MapPage() {
   
     processTripsIntoRoutes();
   }, [trips]);
+  
   
   const calculateMapStats = (routes: TripRoute[]) => {
     const allLocations = routes.flatMap(route => route.locations);
@@ -372,62 +409,94 @@ export default function MapPage() {
 
   const getAllMapLocations = (): MapLocationWithDetails[] => {
     const locations: MapLocationWithDetails[] = [];
-
-    // Add trip-based locations from entries
+    const processedLocations = new Set<string>();
+  
+    // Add trip-based locations from entries with better deduplication
     trips.forEach(trip => {
       const tripLocations = new Map<string, Entry>();
+      
+      // Get ALL entries for the trip, not just recent ones
       trip.recentEntries.forEach(entry => {
         if (entry.coordinates?.lat && entry.coordinates?.lng) {
-          const key = `${entry.coordinates.lat},${entry.coordinates.lng}`;
-          if (!tripLocations.has(key)) {
+          const key = `${entry.coordinates.lat.toFixed(6)},${entry.coordinates.lng.toFixed(6)}`;
+          // Keep the most recent entry for each unique location
+          if (!tripLocations.has(key) || 
+              (tripLocations.get(key) && new Date(entry.timestamp) > new Date(tripLocations.get(key)!.timestamp))) {
             tripLocations.set(key, entry);
           }
         }
       });
-
+  
       tripLocations.forEach(entry => {
-        locations.push({
-          id: `trip-${trip.id}-${entry.id}`,
-          uid: user?.uid || "",
-          name: entry.location || entry.title,
-          lat: entry.coordinates.lat,
-          lng: entry.coordinates.lng,
-          type: "visited",
-          tripId: trip.id,
-          trip,
-          entry,
-          isCustom: false
-        });
+        const locationKey = `${entry.coordinates.lat},${entry.coordinates.lng}`;
+        if (!processedLocations.has(locationKey)) {
+          locations.push({
+            id: `trip-${trip.id}-${entry.id}`,
+            uid: user?.uid || "",
+            name: entry.location || entry.title,
+            lat: entry.coordinates.lat,
+            lng: entry.coordinates.lng,
+            type: trip.status === "completed" ? "visited" : trip.status === "planned" ? "planned" : "visited",
+            tripId: trip.id,
+            trip,
+            entry,
+            isCustom: false
+          });
+          processedLocations.add(locationKey);
+        }
       });
     });
-
+  
     // Add standalone entry locations
     standaloneEntries.forEach(entry => {
       if (entry.coordinates?.lat && entry.coordinates?.lng) {
-        locations.push({
-          id: `standalone-${entry.id}`,
-          uid: user?.uid || "",
-          name: entry.location || entry.title,
-          lat: entry.coordinates.lat,
-          lng: entry.coordinates.lng,
-          type: "visited",
-          entry,
-          isCustom: false
-        });
+        const locationKey = `${entry.coordinates.lat},${entry.coordinates.lng}`;
+        if (!processedLocations.has(locationKey)) {
+          locations.push({
+            id: `standalone-${entry.id}`,
+            uid: user?.uid || "",
+            name: entry.location || entry.title,
+            lat: entry.coordinates.lat,
+            lng: entry.coordinates.lng,
+            type: "visited",
+            entry,
+            isCustom: false
+          });
+          processedLocations.add(locationKey);
+        }
       }
     });
-
+  
     // Add custom locations
     customLocations.forEach(location => {
-      const trip = location.tripId ? trips.find(t => t.id === location.tripId) : undefined;
-      locations.push({
-        ...location,
-        trip
-      });
+      const locationKey = `${location.lat},${location.lng}`;
+      if (!processedLocations.has(locationKey)) {
+        const trip = location.tripId ? trips.find(t => t.id === location.tripId) : undefined;
+        locations.push({
+          ...location,
+          trip
+        });
+        processedLocations.add(locationKey);
+      }
     });
-
+  
     return locations;
   };
+  
+  const handleTripSelection = (tripId: string) => {
+    const newSelectedTrip = selectedTrip === tripId ? "" : tripId;
+    setSelectedTrip(newSelectedTrip);
+    
+    // If a trip is selected, focus the map on that trip's locations
+    if (newSelectedTrip) {
+      const tripLocations = getAllMapLocations().filter(loc => loc.tripId === newSelectedTrip);
+      if (tripLocations.length > 0) {
+        // The MapViewer will automatically focus on these locations via the selectedTripId prop
+        console.log(`Focusing on trip: ${trips.find(t => t.id === newSelectedTrip)?.name}`);
+      }
+    }
+  };
+  
 
   const getLocationsByType = (type: string) => {
     if (type === "trips") {
@@ -724,20 +793,14 @@ export default function MapPage() {
                         
                         <div className="h-[400px] rounded-xl overflow-hidden border-2 border-gold/20 shadow-lg">
                           <MapViewer
-                            locations={newLocation.coordinates.lat ? [{
-                              id: 'new-custom',
-                              name: newLocation.name || 'New Location',
-                              lat: newLocation.coordinates.lat,
-                              lng: newLocation.coordinates.lng,
-                              type: newLocation.type,
-                              uid: user?.uid || ""
-                            }] : []}
-                            onLocationSelect={handleLocationSelect}
-                            interactive={true}
-                            center={newLocation.coordinates.lat ? newLocation.coordinates : { lat: 20, lng: 0 }}
-                            zoom={newLocation.coordinates.lat ? 10 : 2}
-                            showSearch={false}
+                            locations={getAllMapLocations()}
+                            trips={trips}
+                            selectedTripId={selectedTrip}
+                            onLocationClick={handleLocationClick}
+                            enableClustering={true}
+                            showSearch={true}
                             showControls={true}
+                            onLocationSelect={handleLocationSelect}
                           />
                         </div>
 
@@ -827,7 +890,7 @@ export default function MapPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                       className="flex items-center gap-3 p-3 hover:bg-parchment rounded-lg transition-colors cursor-pointer group"
-                      onClick={() => setSelectedTrip(selectedTrip === trip.id ? "" : trip.id)}
+                      onClick={() => handleTripSelection(trip.id)}
                     >
                       <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center">
                         <Route
