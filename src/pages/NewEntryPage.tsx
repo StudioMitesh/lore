@@ -72,66 +72,71 @@ export default function NewEntryPage() {
   }
 
   // Enhanced search functionality
-  const handleSearchInputChange = (value: string) => {
-    setSearchQuery(value)
-    
-    // Clear existing timer
-    if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer)
-    }
+  // Update the handleSearchInputChange function
+const handleSearchInputChange = async (value: string) => {
+  setSearchQuery(value);
   
-    // Set new timer for debounced search
-    const timer = setTimeout(async () => {
-      if (value.trim().length >= 3) {
-        setIsSearching(true)
-        try {
-          const results = await searchPlaces(value, formData.coordinates.lat !== 0 ? {
-            lat: formData.coordinates.lat,
-            lng: formData.coordinates.lng,
-            radius: 50000
-          } : undefined)
-          setSearchResults(results)
-          setShowSearchResults(true)
-        } catch (error) {
-          console.error('Search failed:', error)
-          setSearchResults([])
-        } finally {
-          setIsSearching(false)
-        }
-      } else {
-        setSearchResults([])
-        setShowSearchResults(false)
+  // Clear existing timer
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer);
+  }
+
+  // Set new timer for debounced search
+  const timer = setTimeout(async () => {
+    if (value.trim().length >= 3) {
+      setIsSearching(true);
+      try {
+        const results = await searchPlaces(value, formData.coordinates.lat !== 0 ? {
+          lat: formData.coordinates.lat,
+          lng: formData.coordinates.lng,
+          radius: 50000
+        } : undefined);
+        
+        setSearchResults(results);
+        setShowSearchResults(results.length > 0);
+      } catch (error) {
+        console.error('Search failed:', error);
+        setSearchResults([]);
+        toast.error("Failed to search for places");
+      } finally {
+        setIsSearching(false);
       }
-    }, 300)
-  
-    setSearchDebounceTimer(timer)
-  }
-  
-
-
-  // Handle place selection from search results
-  const handlePlaceSelect = async (prediction: AutocompletePrediction) => {
-    setIsSearching(true)
-    try {
-      const placeDetails = await getPlaceDetailsFromPlaceId(prediction.placeId)
-      
-      handleInputChange('location', placeDetails.name)
-      handleInputChange('country', placeDetails.country)
-      handleInputChange('coordinates', placeDetails.coordinates)
-      handleInputChange('placeId', placeDetails.placeId)
-      
-      setSearchQuery(placeDetails.name)
-      setLocationSelected(true)
-      setShowSearchResults(false)
-      
-      toast.success(`Location set to ${placeDetails.name}`)
-    } catch (error) {
-      console.error('Failed to get place details:', error)
-      toast.error('Failed to load place details')
-    } finally {
-      setIsSearching(false)
+    } else {
+      setSearchResults([]);
+      setShowSearchResults(false);
     }
+  }, 300);
+
+  setSearchDebounceTimer(timer);
+};
+
+// Update the handlePlaceSelect function
+const handlePlaceSelect = async (prediction: AutocompletePrediction) => {
+  setIsSearching(true);
+  try {
+    const placeDetails = await getPlaceDetailsFromPlaceId(prediction.placeId);
+    
+    if (!placeDetails) {
+      throw new Error('No place details found');
+    }
+
+    handleInputChange('location', placeDetails.name);
+    handleInputChange('country', placeDetails.country);
+    handleInputChange('coordinates', placeDetails.coordinates);
+    handleInputChange('placeId', placeDetails.placeId);
+    
+    setSearchQuery(placeDetails.name);
+    setLocationSelected(true);
+    setShowSearchResults(false);
+    
+    toast.success(`Location set to ${placeDetails.name}`);
+  } catch (error) {
+    console.error('Failed to get place details:', error);
+    toast.error('Failed to load place details');
+  } finally {
+    setIsSearching(false);
   }
+};
   
 
 
@@ -183,61 +188,63 @@ export default function NewEntryPage() {
   // Enhanced location selection with geocoding
   const handleLocationSelect = async (location: { lat: number; lng: number; address?: string }) => {
     try {
-      setIsSearching(true)
+      setIsSearching(true);
       
       // First try to get precise place details
       try {
-        const placeDetails = await getPlaceDetails(location.lat, location.lng)
+        const placeDetails = await getPlaceDetails(location.lat, location.lng);
         
-        handleInputChange('coordinates', { lat: location.lat, lng: location.lng })
-        handleInputChange('location', placeDetails.name)
-        handleInputChange('country', placeDetails.country)
-        handleInputChange('placeId', placeDetails.placeId)
-        
-        setSearchQuery(placeDetails.name)
-        setLocationSelected(true)
-        toast.success(`Location set to ${placeDetails.name}`)
-        return
+        if (placeDetails) {
+          handleInputChange('coordinates', { lat: location.lat, lng: location.lng });
+          handleInputChange('location', placeDetails.name);
+          handleInputChange('country', placeDetails.country);
+          handleInputChange('placeId', placeDetails.placeId);
+          
+          setSearchQuery(placeDetails.name);
+          setLocationSelected(true);
+          toast.success(`Location set to ${placeDetails.name}`);
+          return;
+        }
       } catch (error) {
-        console.log('Falling back to nearby places search', error)
+        console.log('Falling back to nearby places search', error);
       }
   
       // Fallback to nearby places search
-      const nearbyPlaces = await getNearbyPlaces(location.lat, location.lng, 50)
+      const nearbyPlaces = await getNearbyPlaces(location.lat, location.lng, 50);
       
       if (nearbyPlaces.length > 0) {
-        const placeDetails = nearbyPlaces[0]
+        const placeDetails = nearbyPlaces[0];
         
-        handleInputChange('coordinates', { lat: location.lat, lng: location.lng })
-        handleInputChange('location', placeDetails.name)
-        handleInputChange('country', placeDetails.country)
-        handleInputChange('placeId', placeDetails.placeId)
+        handleInputChange('coordinates', { lat: location.lat, lng: location.lng });
+        handleInputChange('location', placeDetails.name);
+        handleInputChange('country', placeDetails.country);
+        handleInputChange('placeId', placeDetails.placeId);
         
-        setSearchQuery(placeDetails.name)
-        setLocationSelected(true)
-        toast.success(`Location set to ${placeDetails.name}`)
-        return
+        setSearchQuery(placeDetails.name);
+        setLocationSelected(true);
+        toast.success(`Location set to ${placeDetails.name}`);
+        return;
       }
   
       // Final fallback to basic address parsing
       if (location.address) {
-        const addressParts = location.address.split(', ')
-        const country = addressParts[addressParts.length - 1] || ""
-        const city = addressParts[0] || location.address
+        const addressParts = location.address.split(', ');
+        const country = addressParts[addressParts.length - 1] || "";
+        const city = addressParts[0] || location.address;
         
-        handleInputChange('coordinates', { lat: location.lat, lng: location.lng })
-        handleInputChange('location', city)
-        handleInputChange('country', country)
-        setLocationSelected(true)
-        toast.success("Location set successfully!")
+        handleInputChange('coordinates', { lat: location.lat, lng: location.lng });
+        handleInputChange('location', city);
+        handleInputChange('country', country);
+        setLocationSelected(true);
+        toast.success("Location set successfully!");
       }
     } catch (error) {
-      console.error('Failed to get location details:', error)
-      toast.error('Failed to set location details')
+      console.error('Failed to get location details:', error);
+      toast.error('Failed to set location details');
     } finally {
-      setIsSearching(false)
+      setIsSearching(false);
     }
-  }
+  };
   
 
 
@@ -506,21 +513,37 @@ export default function NewEntryPage() {
                       <PopoverTrigger asChild>
                         <div className="relative">
                           <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
-                          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
                           <Input
                             id="location-search"
                             placeholder="Search for a place..."
-                            className="pl-9 pr-9 bg-parchment border-gold/30"
+                            className="pl-9 bg-parchment border-gold/30"
                             value={searchQuery}
                             onChange={(e) => handleSearchInputChange(e.target.value)}
-                            onFocus={() => setShowSearchResults(searchResults.length > 0)}
+                            onFocus={() => {
+                              if (searchQuery && searchResults.length > 0) {
+                                setShowSearchResults(true);
+                              }
+                            }}
+                            onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
                           />
-                          {isSearching && (
+                          {isSearching ? (
                             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gold" />
+                          ) : (
+                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
                           )}
                         </div>
                       </PopoverTrigger>
-                      <PopoverContent className="p-0 w-[400px]" align="start">
+                      <PopoverContent 
+                        className="p-0 w-[400px]" 
+                        align="start"
+                        onPointerDownOutside={(e) => {
+                          if (!(e.target as HTMLElement).closest('#location-search')) {
+                            setShowSearchResults(false);
+                          }
+                        }}
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                        onCloseAutoFocus={(e) => e.preventDefault()}
+                      >
                         <Command>
                           <CommandList>
                             {searchResults.length === 0 && searchQuery.length >= 3 && !isSearching && (
@@ -532,14 +555,15 @@ export default function NewEntryPage() {
                                   key={result.placeId}
                                   value={result.description}
                                   onSelect={() => handlePlaceSelect(result)}
-                                  className="flex flex-col items-start py-3"
+                                  className="flex flex-col items-start py-3 cursor-pointer"
+                                  onMouseDown={(e) => e.preventDefault()}
                                 >
                                   <div className="font-medium">{result.structuredFormatting.mainText}</div>
                                   <div className="text-sm text-muted-foreground">
                                     {result.structuredFormatting.secondaryText}
                                   </div>
                                   <div className="flex gap-1 mt-1">
-                                    {result.types.slice(0, 2).map(type => (
+                                    {result.types?.slice(0, 2).map(type => (
                                       <Badge key={type} variant="secondary" className="text-xs">
                                         {type.replace(/_/g, ' ')}
                                       </Badge>
