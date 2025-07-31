@@ -256,22 +256,22 @@ export interface UserProfile {
   }
 
   export interface PlaceDetails {
-    placeId?: string;
+    placeId: string;
     name: string;
     address: string;
     city: string;
     country: string;
     coordinates: { lat: number; lng: number };
     types: string[];
-    establishmentName?: string;
-    businessStatus?: string;
-    rating?: number;
+    establishmentName?: string | null;
+    businessStatus?: string | null;
+    rating?: number | null;
     photos?: string[];
   }
   
   export interface AutocompletePrediction {
-    description: string;
     placeId: string;
+    description: string;
     structuredFormatting: {
       mainText: string;
       secondaryText: string;

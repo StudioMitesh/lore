@@ -6,7 +6,7 @@ export const getPlaceDetails = async (lat: number, lng: number): Promise<PlaceDe
   const geocoder = new window.google.maps.Geocoder();
 
   const results = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
-    geocoder.geocode({ location: { lat, lng } }, (res: google.maps.GeocoderResult[] | PromiseLike<google.maps.GeocoderResult[]>, status: string) => {
+    geocoder.geocode({ location: { lat, lng } }, (res: google.maps.GeocoderResult[] | null, status: string) => {
       if (status === 'OK' && res) resolve(res);
       else reject(new Error(`Geocoding failed: ${status}`));
     });
@@ -16,81 +16,149 @@ export const getPlaceDetails = async (lat: number, lng: number): Promise<PlaceDe
 };
 
 export const getPlaceDetailsFromPlaceId = async (placeId: string): Promise<PlaceDetails> => {
-  await loadGoogleMapsApi();
-  const service = new window.google.maps.places.PlacesService(document.createElement('div'));
+    await loadGoogleMapsApi();
+    
+    if (!placeId) {
+      throw new Error('Invalid placeId: empty string');
+    }
+  
+    try {
+      const { Place } = await window.google.maps.importLibrary("places") as google.maps.PlacesLibrary;
+      
+      const place = new Place({
+        id: placeId,
+      });
 
-  const result = await new Promise<google.maps.places.PlaceResult>((resolve, reject) => {
-    service.getDetails(
-      {
-        placeId,
-        fields: [
-          'name',
-          'formatted_address',
-          'geometry',
-          'place_id',
-          'types',
-          'business_status',
-          'rating',
-          'photos',
-          'address_components'
-        ]
-      },
-      (place: google.maps.places.PlaceResult | PromiseLike<google.maps.places.PlaceResult>, status: any) => {
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-          resolve(place);
-        } else {
-          reject(new Error(`Place details failed: ${status}`));
-        }
-      }
-    );
-  });
+      const fields = [
+        'displayName',
+        'formattedAddress',
+        'location', 
+        'types',
+        'businessStatus',
+        'rating',
+        'photos',
+        'addressComponents'
+      ];
+  
+      await place.fetchFields({ fields });
 
-  return formatPlaceResult(result);
-};
+      const addressComponents = place.addressComponents || [];
+      const getComponent = (type: string) =>
+        addressComponents.find(c => c.types.includes(type))?.longText;
+
+  
+      return {
+        placeId: place.id || '',
+        name: place.displayName || place.formattedAddress?.split(',')[0] || 'Unknown',
+        address: place.formattedAddress || '',
+        city: getComponent('locality') || getComponent('administrative_area_level_1') || '',
+        country: getComponent('country') || '',
+        coordinates: {
+          lat: place.location?.lat() || 0,
+          lng: place.location?.lng() || 0
+        },
+        types: place.types || [],
+        establishmentName: place.displayName,
+        businessStatus: place.businessStatus,
+        rating: place.rating,
+        photos: place.photos?.map(photo => photo.getURI({ maxWidth: 400, maxHeight: 400 })) || []
+      };
+    } catch (error) {
+      console.error("Failed to fetch place details:", error);
+      throw new Error("Failed to fetch place details");
+    }
+  };
 
 export const searchPlaces = async (
     query: string,
     bias?: { lat: number; lng: number; radius?: number }
-): Promise<AutocompletePrediction[]> => {
+  ): Promise<AutocompletePrediction[]> => {
+    if (!query.trim()) return [];
+  
     await loadGoogleMapsApi();
-
-    const sessionToken = new window.google.maps.places.AutocompleteSessionToken();
-    const request: google.maps.places.AutocompleteRequest = {
+  
+    try {
+      const placesLib = await window.google.maps.importLibrary("places") as google.maps.PlacesLibrary;
+      const autocompleteSuggestion = placesLib.AutocompleteSuggestion;
+  
+      const token = new window.google.maps.places.AutocompleteSessionToken();
+  
+      const request = {
         input: query,
-        sessionToken,
+        sessionToken: token,
         includedPrimaryTypes: ['establishment', 'geocode'],
         ...(bias && {
-            location: new window.google.maps.LatLng(bias.lat, bias.lng),
+          locationBias: {
+            center: new window.google.maps.LatLng(bias.lat, bias.lng),
             radius: bias.radius ?? 50000
+          }
         })
-    };
-
-    try {
-        const { AutocompleteService } = await window.google.maps.importLibrary("places") as any;
-        const service = new AutocompleteService();
-        
-        const predictions = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
-            service.getPlacePredictions(request, (res: google.maps.places.AutocompletePrediction[] | PromiseLike<google.maps.places.AutocompletePrediction[]>, status: any) => {
-                if (status === window.google.maps.places.PlacesServiceStatus.OK && res) resolve(res);
-                else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) resolve([]);
-                else reject(new Error(`Autocomplete failed: ${status}`));
-            });
-        });
-
-        return predictions.map((pred): AutocompletePrediction => ({
-        description: pred.description,
-        placeId: pred.place_id,
+      };
+  
+      const { suggestions } = await autocompleteSuggestion.fetchAutocompleteSuggestions(request);
+  
+      return (suggestions || []).map((suggestion): AutocompletePrediction => ({
+        description: suggestion.placePrediction?.text?.text || '',
+        placeId: suggestion.placePrediction?.placeId || '',
         structuredFormatting: {
-            mainText: pred.structured_formatting?.main_text || '',
-            secondaryText: pred.structured_formatting?.secondary_text || ''
+          mainText: suggestion.placePrediction?.mainText?.text || '',
+          secondaryText: suggestion.placePrediction?.secondaryText?.text || ''
         },
-        types: pred.types || []
-        }));
+        types: suggestion.placePrediction?.types || []
+      }));
+  
     } catch (error) {
-        console.error("Error using new AutocompleteService:", error);
-        throw error;
+      console.error("searchPlaces failed:", error);
+      return [];
     }
-};
+  };
+  
+
+  export const getAutocompleteSuggestions = async (
+    input: string,
+    sessionToken?: google.maps.places.AutocompleteSessionToken,
+    bias?: { lat: number; lng: number; radius?: number }
+  ): Promise<AutocompletePrediction[]> => {
+    if (!input.trim()) return [];
+  
+    await loadGoogleMapsApi();
+  
+    try {
+      const placesLib = await window.google.maps.importLibrary("places") as google.maps.PlacesLibrary;
+      const autocompleteSuggestion = placesLib.AutocompleteSuggestion;
+  
+      const token = sessionToken || new window.google.maps.places.AutocompleteSessionToken();
+  
+      const request = {
+        input,
+        sessionToken: token,
+        includedPrimaryTypes: ['establishment', 'geocode'],
+        ...(bias && {
+          locationBias: {
+            center: new window.google.maps.LatLng(bias.lat, bias.lng),
+            radius: bias.radius ?? 50000
+          }
+        })
+      };
+  
+      const { suggestions } = await autocompleteSuggestion.fetchAutocompleteSuggestions(request);
+  
+      return (suggestions || []).map((suggestion): AutocompletePrediction => ({
+        description: suggestion.placePrediction?.text?.text || '',
+        placeId: suggestion.placePrediction?.placeId || '',
+        structuredFormatting: {
+          mainText: suggestion.placePrediction?.mainText?.text || '',
+          secondaryText: suggestion.placePrediction?.secondaryText?.text || ''
+        },
+        types: suggestion.placePrediction?.types || []
+      }));
+  
+    } catch (error) {
+      console.error("AutocompleteSuggestion failed:", error);
+      return [];
+    }
+  };
+  
 
 export const getNearbyPlaces = async (
   lat: number,
@@ -99,26 +167,45 @@ export const getNearbyPlaces = async (
   type?: string
 ): Promise<PlaceDetails[]> => {
   await loadGoogleMapsApi();
-  const service = new window.google.maps.places.PlacesService(document.createElement('div'));
+  
+  try {
+    const { Place, SearchNearbyRankPreference } = await window.google.maps.importLibrary("places") as google.maps.PlacesLibrary;
+    
+    const request = {
+      fields: ['id', 'displayName', 'formattedAddress', 'location', 'types', 'businessStatus', 'rating'],
+      locationRestriction: {
+        center: { lat, lng },
+        radius: radius
+      },
+      ...(type && { includedTypes: [type] }),
+      maxResultCount: 20,
+      rankPreference: SearchNearbyRankPreference.POPULARITY
+    };
 
-  const request: google.maps.places.PlaceSearchRequest = {
-    location: new window.google.maps.LatLng(lat, lng),
-    radius,
-    type
-  };
-
-  const results = await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
-    service.nearbySearch(request, (res: google.maps.places.PlaceResult[] | PromiseLike<google.maps.places.PlaceResult[]>, status: any) => {
-      if (status === window.google.maps.places.PlacesServiceStatus.OK && res) resolve(res);
-      else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) resolve([]);
-      else reject(new Error(`Nearby search failed: ${status}`));
-    });
-  });
-
-  return results.map(formatPlaceResult);
+    const { places } = await Place.searchNearby(request);
+    
+    return (places || []).map((place): PlaceDetails => ({
+      placeId: place.id || '',
+      name: place.displayName || 'Unknown',
+      address: place.formattedAddress || '',
+      city: extractCityFromAddress(place.formattedAddress || ''),
+      country: extractCountryFromAddress(place.formattedAddress || ''),
+      coordinates: {
+        lat: place.location?.lat() || lat,
+        lng: place.location?.lng() || lng
+      },
+      types: place.types || [],
+      establishmentName: place.displayName,
+      businessStatus: place.businessStatus,
+      rating: place.rating,
+      photos: []
+    }));
+    
+  } catch (error) {
+    console.error("New Places API nearby search failed:", error);
+    return Promise.reject(new Error("Failed to fetch nearby places"));
+  }
 };
-
-// --- UTILITIES ---
 
 function extractBestPlaceDetails(
   results: google.maps.GeocoderResult[],
@@ -142,28 +229,20 @@ function extractBestPlaceDetails(
   };
 }
 
-function formatPlaceResult(place: google.maps.places.PlaceResult): PlaceDetails {
-  const components = place.address_components || [];
+function extractCityFromAddress(address: string): string {
+  const parts = address.split(',');
+  if (parts.length >= 2) {
+    return parts[parts.length - 2].trim();
+  }
+  return '';
+}
 
-  const getComponent = (type: string) =>
-    components.find(c => c.types.includes(type))?.long_name;
-
-  return {
-    placeId: place.place_id,
-    name: place.name || place.formatted_address?.split(',')[0] || 'Unknown',
-    address: place.formatted_address || '',
-    city: getComponent('locality') || getComponent('administrative_area_level_1') || '',
-    country: getComponent('country') || '',
-    coordinates: {
-      lat: place.geometry?.location?.lat() || 0,
-      lng: place.geometry?.location?.lng() || 0
-    },
-    types: place.types || [],
-    establishmentName: place.name,
-    businessStatus: place.business_status,
-    rating: place.rating,
-    photos: place.photos?.map(photo => photo.getUrl({ maxWidth: 400, maxHeight: 400 })) || []
-  };
+function extractCountryFromAddress(address: string): string {
+  const parts = address.split(',');
+  if (parts.length >= 1) {
+    return parts[parts.length - 1].trim();
+  }
+  return '';
 }
 
 export const isValidCoordinates = (lat: number, lng: number): boolean =>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { motion } from "framer-motion"
 import { Search, Layers, MapPin, Route, Navigation, Satellite, Map as MapIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -8,9 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Badge } from "@/components/ui/badge"
 import { loadGoogleMapsApi } from "@/api/googleMapsLoader"
-import { getPlaceDetails, getPlaceDetailsFromPlaceId, searchPlaces } from "@/services/geocoding";
+import { getPlaceDetails, getPlaceDetailsFromPlaceId, getAutocompleteSuggestions } from "@/services/geocoding";
 import { type Entry, type Trip, type TripWithDetails, type AutocompletePrediction } from "@/lib/types"
 
 interface MapLocation {
@@ -45,6 +44,7 @@ declare global {
   }
 }
 
+
 export function MapViewer({ 
   locations, 
   trips = [], 
@@ -62,18 +62,37 @@ export function MapViewer({
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
   const polylinesRef = useRef<Map<string, any>>(new Map())
-  const autocompleteServiceRef = useRef<any>(null)
+  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const trafficLayerRef = useRef<any>(null)
+  const transitLayerRef = useRef<any>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   
   const [searchValue, setSearchValue] = useState("")
   const [searchResults, setSearchResults] = useState<AutocompletePrediction[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [mapType, setMapType] = useState<string>("roadmap")
   const [showTraffic, setShowTraffic] = useState(false)
   const [showTransit, setShowTransit] = useState(false)
   const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null)
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
-  // Initialize map
+
+  // Memoize current map center for search bias
+  const currentMapCenter = useMemo(() => {
+    if (mapInstanceRef.current) {
+      const mapCenter = mapInstanceRef.current.getCenter();
+      if (mapCenter) {
+        return { lat: mapCenter.lat(), lng: mapCenter.lng() };
+      }
+    }
+    return center;
+  }, [center]);
+
+  // Initialize map only once
   useEffect(() => {
     const initializeMap = async () => {
       try {
@@ -96,40 +115,34 @@ export function MapViewer({
         const map = new Map(mapRef.current, mapOptions)
         mapInstanceRef.current = map
 
-        // Add traffic layer toggle
-        const trafficLayer = new window.google.maps.TrafficLayer()
-        if (showTraffic) {
-          trafficLayer.setMap(map)
-        }
-
-        // Add transit layer toggle  
-        const transitLayer = new window.google.maps.TransitLayer()
-        if (showTransit) {
-          transitLayer.setMap(map)
-        }
+        // Initialize layers
+        trafficLayerRef.current = new window.google.maps.TrafficLayer()
+        transitLayerRef.current = new window.google.maps.TransitLayer()
 
         // Interactive click handler
         if (interactive) {
-            map.addListener("click", async (event: any) => {
-              const lat = event.latLng.lat()
-              const lng = event.latLng.lng()
-              
-              try {
-                const placeDetails = await getPlaceDetails(lat, lng)
-                onLocationSelect?.({ 
-                  lat, 
-                  lng, 
-                  address: placeDetails.address 
-                })
-              } catch (error) {
-                console.error("Geocoding failed:", error)
-                onLocationSelect?.({ lat, lng })
-              }
-            })
-          }
+          map.addListener("click", async (event: any) => {
+            const lat = event.latLng.lat()
+            const lng = event.latLng.lng()
+            
+            try {
+              const placeDetails = await getPlaceDetails(lat, lng)
+              onLocationSelect?.({ 
+                lat, 
+                lng, 
+                address: placeDetails.address 
+              })
+            } catch (error) {
+              console.error("Geocoding failed:", error)
+              onLocationSelect?.({ lat, lng })
+            }
+          })
+        }
 
-        // Initialize autocomplete service
-        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteSuggestion()
+        // Initialize session token for search
+        if (window.google?.maps?.places?.AutocompleteSessionToken) {
+          sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+        }
 
         setIsLoading(false)
       } catch (error) {
@@ -139,57 +152,124 @@ export function MapViewer({
     }
   
     initializeMap()
-  }, [center, zoom, interactive, onLocationSelect, showControls, showTraffic, showTransit])
+  }, []) // Only run once on mount
 
-  // Handle search functionality
-  const handleSearch = async () => {
-    if (!searchValue.trim() || !mapInstanceRef.current) return
-  
-    try {
-      const results = await searchPlaces(searchValue, center ? {
-        lat: center.lat,
-        lng: center.lng,
-        radius: 50000
-      } : undefined)
-      
-      setSearchResults(results)
-      setShowSearchResults(results.length > 0)
-    } catch (error) {
-      console.error("Search failed:", error)
-      setSearchResults([])
-      setShowSearchResults(false)
+  // Handle map type changes
+  useEffect(() => {
+    if (mapInstanceRef.current && !isLoading) {
+      mapInstanceRef.current.setMapTypeId(mapType)
     }
-  }
+  }, [mapType, isLoading])
+
+  // Handle layer toggles
+  useEffect(() => {
+    if (!mapInstanceRef.current || isLoading) return
+
+    if (showTraffic && trafficLayerRef.current) {
+      trafficLayerRef.current.setMap(mapInstanceRef.current)
+    } else if (trafficLayerRef.current) {
+      trafficLayerRef.current.setMap(null)
+    }
+  }, [showTraffic, isLoading])
+
+  useEffect(() => {
+    if (!mapInstanceRef.current || isLoading) return
+
+    if (showTransit && transitLayerRef.current) {
+      transitLayerRef.current.setMap(mapInstanceRef.current)
+    } else if (transitLayerRef.current) {
+      transitLayerRef.current.setMap(null)
+    }
+  }, [showTransit, isLoading])
+
+  // Debounced search functionality
+  const performSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+  
+    setIsSearching(true);
+    
+    try {
+      const results = await getAutocompleteSuggestions(
+        query,
+        sessionTokenRef.current || undefined,
+        {
+          lat: currentMapCenter.lat,
+          lng: currentMapCenter.lng,
+          radius: 50000
+        }
+      );
+      
+      setSearchResults(results);
+      setShowSearchResults(results.length > 0);
+    } catch (error) {
+      console.error("Search failed:", error);
+      setSearchResults([]);
+      setShowSearchResults(false);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [currentMapCenter]);
+
+  // Handle search input with debouncing
+  const handleSearchInput = useCallback((value: string) => {
+    setSearchValue(value);
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+  
+    // Set new timeout for debounced search
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(value);
+    }, 300);
+  }, [performSearch]);
 
   // Handle search result selection
-  const handleSearchResultSelect = async (result: AutocompletePrediction) => {
-    if (!mapInstanceRef.current) return
+  const handleSearchResultSelect = useCallback(async (result: AutocompletePrediction) => {
+    if (!mapInstanceRef.current || !result.placeId) return;
   
     try {
-      const placeDetails = await getPlaceDetailsFromPlaceId(result.placeId)
-      const { lat, lng } = placeDetails.coordinates
+      const placeDetails = await getPlaceDetailsFromPlaceId(result.placeId);
       
-      mapInstanceRef.current.setCenter({ lat, lng })
-      mapInstanceRef.current.setZoom(15)
+      if (!placeDetails.coordinates) {
+        throw new Error('No coordinates found for this place');
+      }
       
-      setSearchValue(placeDetails.name)
-      setShowSearchResults(false)
+      const { lat, lng } = placeDetails.coordinates;
       
-      // Trigger location selection if in interactive mode
+      mapInstanceRef.current.setCenter({ lat, lng });
+      mapInstanceRef.current.setZoom(15);
+      
+      setSearchValue(placeDetails.name);
+      setShowSearchResults(false);
+      
+      if (window.google?.maps?.places?.AutocompleteSessionToken) {
+        sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+      }
+      
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 0);
+      
       if (interactive && onLocationSelect) {
         onLocationSelect({ 
           lat, 
           lng, 
           address: placeDetails.address 
-        })
+        });
       }
     } catch (error) {
-      console.error("Failed to navigate to search result:", error)
+      console.error("Failed to navigate to search result:", error);
     }
-  }
+  }, [interactive, onLocationSelect]);
 
   // Get user's current location
-  const getCurrentLocation = () => {
+  const getCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) return
 
     navigator.geolocation.getCurrentPosition(
@@ -208,7 +288,30 @@ export function MapViewer({
         console.error("Geolocation failed:", error)
       }
     )
-  }
+  }, [])
+
+  // Clear search
+  const clearSearch = useCallback(() => {
+    setSearchValue("")
+    setSearchResults([])
+    setShowSearchResults(false)
+  }, [])
+
+  // Handle manual search trigger
+  const handleManualSearch = useCallback(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    performSearch(searchValue)
+  }, [searchValue, performSearch])
+
+  const handleSearchContainerClick = () => {
+    if (!isInputFocused && searchInputRef.current) {
+      searchInputRef.current.focus();
+      const valueLength = searchInputRef.current.value.length;
+      searchInputRef.current.setSelectionRange(valueLength, valueLength);
+    }
+  };
 
   // Update markers when locations change
   useEffect(() => {
@@ -221,7 +324,7 @@ export function MapViewer({
     polylinesRef.current.clear()
 
     const createMarkers = async () => {
-        const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker")
+      const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker")
 
       // Group locations by trip
       const tripLocations = new Map<string, MapLocation[]>()
@@ -353,6 +456,15 @@ export function MapViewer({
     createMarkers()
   }, [locations, trips, selectedTripId, isLoading, onLocationClick, currentPosition])
 
+  // Clean up timeouts
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
+
   // Helper functions for styling
   const getTripColor = (status: string) => {
     switch (status) {
@@ -438,7 +550,10 @@ export function MapViewer({
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      handleSearch()
+      handleManualSearch()
+    }
+    if (e.key === "Escape") {
+      clearSearch()
     }
   }
 
@@ -447,65 +562,127 @@ export function MapViewer({
       {/* Search and Controls */}
       {showSearch && (
         <div className="absolute top-4 left-4 right-4 z-10 flex justify-between">
-          <div className="relative flex gap-2">
+        <div className="relative flex gap-2">
+          <div 
+            className="relative search-input-container"
+            onClick={handleSearchContainerClick}
+          >
             <Popover open={showSearchResults} onOpenChange={setShowSearchResults}>
               <PopoverTrigger asChild>
-                <div className="relative">
+                <div>
                   <Input
+                    ref={searchInputRef}
                     placeholder="Search locations..."
-                    className="pl-9 bg-parchment/90 backdrop-blur-sm border-gold/30 w-64"
+                    className="pl-10 pr-10 bg-white/95 backdrop-blur-sm border-2 border-gray-200 shadow-lg w-80 h-12 text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl"
                     value={searchValue}
-                    onChange={(e) => setSearchValue(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    onFocus={() => setShowSearchResults(searchResults.length > 0)}
+                    onChange={(e) => {
+                      handleSearchInput(e.target.value);
+                      if (e.target.value) {
+                        setShowSearchResults(true);
+                      }
+                    }}
+                    onKeyDown={handleKeyPress}
+                    onFocus={() => {
+                      if (searchValue && searchResults.length > 0) {
+                        setShowSearchResults(true);
+                      }
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setShowSearchResults(false), 200);
+                    }}
                   />
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
                 </div>
               </PopoverTrigger>
-              <PopoverContent className="p-0 w-80" align="start">
-                <div className="max-h-60 overflow-y-auto">
-                  {searchResults.map((result, _index) => (
-                    <div
-                      key={result.placeId}
-                      className="p-3 hover:bg-parchment/50 cursor-pointer border-b border-gold/10 last:border-b-0"
-                      onClick={() => handleSearchResultSelect(result)}
-                    >
-                      <div className="font-medium">{result.structuredFormatting.mainText}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {result.structuredFormatting.secondaryText}
-                      </div>
-                      <div className="flex gap-1 mt-1">
-                        {result.types.slice(0, 2).map(type => (
-                          <Badge key={type} variant="secondary" className="text-xs">
-                            {type.replace(/_/g, ' ')}
-                          </Badge>
-                        ))}
-                      </div>
+              <PopoverContent 
+                className="p-0 w-80 bg-white/98 backdrop-blur-sm shadow-2xl border-2 border-gray-200 rounded-xl mt-2" 
+                align="start"
+                onPointerDownOutside={(e) => {
+                  if (!(e.target as HTMLElement).closest('.search-input-container')) {
+                    setShowSearchResults(false);
+                  }
+                }}
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                onCloseAutoFocus={(e) => e.preventDefault()}
+              >
+                <div className="max-h-80 overflow-y-auto">
+                  {searchResults.length === 0 && searchValue && !isSearching ? (
+                    <div className="p-4 text-center text-gray-500">
+                      No results found for "{searchValue}"
                     </div>
-                  ))}
+                  ) : (
+                    searchResults.map((result, index) => (
+                      <div
+                        key={`${result.placeId}-${index}`}
+                        className="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          handleSearchResultSelect(result);
+                          setShowSearchResults(false);
+                        }}
+                      >
+                        <div className="font-semibold text-gray-800 text-base mb-1">
+                          {result.structuredFormatting.mainText}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {result.structuredFormatting.secondaryText}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </PopoverContent>
             </Popover>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+              </div>
+            )}
+            {searchValue && !isSearching && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearSearch();
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xl font-bold w-6 h-6 flex items-center justify-center"
+              >
+                ×
+              </button>
+            )}
           </div>
+        </div>
 
           {showControls && (
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="icon"
-                className="bg-parchment/90 backdrop-blur-sm border-gold/30"
-                onClick={handleSearch}
-              >
-                <Search className="h-4 w-4" />
+                className="bg-white/95 backdrop-blur-sm border-2 border-gray-200 shadow-lg hover:bg-gray-50 h-12 w-12"
+                onClick={() => {
+                    if (searchValue.trim()) {
+                    handleManualSearch();
+                    searchInputRef.current?.focus();
+                    setTimeout(() => {
+                        if (searchInputRef.current) {
+                        const len = searchInputRef.current.value.length;
+                        searchInputRef.current.setSelectionRange(len, len);
+                        }
+                    }, 0);
+                    }
+                }}
+                disabled={!searchValue.trim() || isSearching}
+                >
+                <Search className="h-5 w-5" />
               </Button>
               
               <Button
                 variant="outline"
                 size="icon"
-                className="bg-parchment/90 backdrop-blur-sm border-gold/30"
+                className="bg-white/95 backdrop-blur-sm border-2 border-gray-200 shadow-lg hover:bg-gray-50 h-12 w-12"
                 onClick={getCurrentLocation}
               >
-                <Navigation className="h-4 w-4" />
+                <Navigation className="h-5 w-5" />
               </Button>
 
               <Popover>
@@ -513,12 +690,12 @@ export function MapViewer({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="bg-parchment/90 backdrop-blur-sm border-gold/30"
+                    className="bg-white/95 backdrop-blur-sm border-2 border-gray-200 shadow-lg hover:bg-gray-50 h-12 w-12"
                   >
-                    <Layers className="h-4 w-4" />
+                    <Layers className="h-5 w-5" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-48">
+                <PopoverContent className="w-48 bg-white/98 backdrop-blur-sm shadow-2xl border-2 border-gray-200">
                   <div className="space-y-3">
                     <div>
                       <label className="text-sm font-medium">Map Type</label>
