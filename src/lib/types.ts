@@ -165,8 +165,10 @@ export interface UserProfile {
     lng: number
     type: "visited" | "planned" | "favorite"
     tripId?: string
+    trip?: Trip
     dayLogId?: string
     entryId?: string
+    entry?: Entry
     isCustom?: boolean // true if custom add, false if from entry/trip/daylog
   }
   
@@ -249,10 +251,42 @@ export interface UserProfile {
   export interface DayLogWithEntries extends DayLog {
     entries: Entry[]
   }
+
+  export interface MapLocationWithDetails {
+    id: string
+    name: string
+    lat: number
+    lng: number
+    type: "visited" | "planned" | "favorite"
+    uid?: string
+    trip?: Trip
+    dayLog?: DayLog
+    entry?: Entry
+    tripId?: string
+    isCustom?: boolean
+  }
   
   export interface EntryWithTripInfo extends Entry {
     tripName?: string
     dayLogDate?: string
+  }
+
+  export interface TripRoute {
+    tripId: string
+    tripName: string
+    locations: MapLocationWithDetails[]
+    route?: google.maps.DirectionsResult
+    totalDistance?: number
+    totalDuration?: number
+    status: "completed" | "active" | "planned" | "draft"
+  }
+  
+  export interface MapStats {
+    totalCountries: number
+    totalCities: number
+    totalDistance: number
+    totalEntries: number
+    favoriteDestination?: string
   }
 
   export interface PlaceDetails {

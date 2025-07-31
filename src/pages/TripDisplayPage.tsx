@@ -336,7 +336,7 @@ export default function TripDisplayPage() {
                   {isOwner && (
                     <AnimatedButton 
                       animationType="glow"
-                      onClick={() => navigate('/new-entry')}
+                      onClick={() => navigate('/entry/new')}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Add Entry
@@ -378,7 +378,7 @@ export default function TripDisplayPage() {
                       {isOwner && (
                         <AnimatedButton 
                           animationType="glow"
-                          onClick={() => navigate('/new-entry')}
+                          onClick={() => navigate('/entry/new')}
                         >
                           <Plus className="mr-2 h-4 w-4" />
                           Add First Entry
@@ -577,7 +577,7 @@ export default function TripDisplayPage() {
                     <Button 
                       variant="outline" 
                       className="w-full justify-start border-gold/30 bg-transparent"
-                      onClick={() => navigate('/new-entry')}
+                      onClick={() => navigate('/entry/new')}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Add Entry

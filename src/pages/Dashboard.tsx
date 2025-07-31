@@ -240,7 +240,7 @@ export default function Dashboard() {
               <AnimatedButton 
                 animationType="glow" 
                 className="shrink-0"
-                onClick={() => navigate('/new-entry')}
+                onClick={() => navigate('/entry/new')}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 New Entry
@@ -389,7 +389,7 @@ export default function Dashboard() {
                           </AnimatedButton>
                           <AnimatedButton 
                             animationType="glow"
-                            onClick={() => navigate('/new-entry')}
+                            onClick={() => navigate('/entry/new')}
                           >
                             <Plus className="mr-2 h-4 w-4" />
                             Create Entry
@@ -465,7 +465,7 @@ export default function Dashboard() {
                       </p>
                       <AnimatedButton 
                         animationType="glow"
-                        onClick={() => navigate('/new-entry')}
+                        onClick={() => navigate('/entry/new')}
                       >
                         <Plus className="mr-2 h-4 w-4" />
                         Create First Entry
@@ -505,7 +505,7 @@ export default function Dashboard() {
                       </p>
                       <AnimatedButton 
                         animationType="glow"
-                        onClick={() => navigate('/new-entry')}
+                        onClick={() => navigate('/entry/new')}
                       >
                         <Plus className="mr-2 h-4 w-4" />
                         Create Solo Entry
@@ -724,7 +724,7 @@ export default function Dashboard() {
                   <Button 
                     variant="outline" 
                     className="w-full justify-start border-gold/30 bg-transparent"
-                    onClick={() => navigate('/new-entry')}
+                    onClick={() => navigate('/entry/new')}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     New Entry

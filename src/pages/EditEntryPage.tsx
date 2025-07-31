@@ -3,7 +3,7 @@ import * as React from "react"
 import { motion } from "framer-motion"
 import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive, ArrowLeft, Loader2, Trash2 } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
-import { collection, doc, updateDoc, getDoc, deleteDoc, addDoc } from "firebase/firestore"
+import { collection, doc, updateDoc, getDoc, deleteDoc, addDoc, getDocs, query, where } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { db, storage } from "@/api/firebase"
 import { useAuth } from '@/context/useAuth'
-import { type Entry, type UserProfile } from "@/lib/types"
+import { type Entry, type UserProfile, type Trip, type DayLog } from "@/lib/types"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -67,6 +67,9 @@ export default function EditEntryPage() {
   const [locationSelected, setLocationSelected] = React.useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
   const [isDeleting, setIsDeleting] = React.useState(false)
+  const [associatedTrip, setAssociatedTrip] = React.useState<Trip | null>(null);
+  const [associatedDayLog, setAssociatedDayLog] = React.useState<DayLog | null>(null);
+
 
   React.useEffect(() => {
     const loadEntry = async () => {
@@ -241,6 +244,43 @@ export default function EditEntryPage() {
     }
   }
 
+  const updateMapLocation = async (entryId: string, entryData: Partial<Entry>) => {
+    if (!entryData.coordinates || (entryData.coordinates.lat === 0 && entryData.coordinates.lng === 0)) return;
+  
+    try {
+      const mapLocQuery = query(
+        collection(db, "mapLocations"),
+        where("entryId", "==", entryId)
+      );
+      const mapLocSnap = await getDocs(mapLocQuery);
+      
+      const mapLocationData = {
+        uid: user!.uid,
+        name: entryData.location!,
+        lat: entryData.coordinates.lat,
+        lng: entryData.coordinates.lng,
+        type: "visited" as const,
+        tripId: entryData.tripId || undefined,
+        dayLogId: entryData.dayLogId || undefined,
+        entryId: entryId,
+        isCustom: false,
+        updatedAt: new Date().toISOString()
+      };
+  
+      if (!mapLocSnap.empty) {
+        const mapLocRef = doc(db, "mapLocations", mapLocSnap.docs[0].id);
+        await updateDoc(mapLocRef, mapLocationData);
+      } else {
+        await addDoc(collection(db, "mapLocations"), {
+          ...mapLocationData,
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Error updating map location:', error);
+    }
+  };  
+
   const validateForm = (): boolean => {
     if (!formData.title.trim()) {
       toast.error("Please enter a title")
@@ -296,51 +336,55 @@ export default function EditEntryPage() {
         ...updatedEntryData
       } as Entry
 
+      await updateMapLocation(entry.id, updatedEntry)
+  
       await updateUserStats(updatedEntry, entry)
 
       if (!isDraft) {
-        try {
+        const timelineQuery = query(
+          collection(db, "timelineEvents"),
+          where("id", "==", entry.id)
+        )
+        const timelineSnap = await getDocs(timelineQuery)
+        
+        const timelineData = {
+          title: formData.title,
+          timestamp: formData.timestamp,
+          location: formData.location,
+          country: formData.country,
+          type: formData.type,
+          updatedAt: new Date().toISOString()
+        }
+  
+        if (!timelineSnap.empty) {
+          const timelineRef = doc(db, "timelineEvents", timelineSnap.docs[0].id)
+          await updateDoc(timelineRef, timelineData)
+        } else {
           await addDoc(collection(db, "timelineEvents"), {
+            ...timelineData,
             id: entry.id,
             uid: user.uid,
-            title: formData.title,
-            timestamp: formData.timestamp,
-            location: formData.location,
-            country: formData.country,
-            type: formData.type,
             createdAt: entry.createdAt,
-            updatedAt: new Date().toISOString()
+            tripId: entry.tripId,
+            dayLogId: entry.dayLogId
           })
-        } catch (error) {
-          console.log('Timeline event may already exist: ', error)
-        }
-      }
-
-      if (formData.coordinates.lat !== 0 || formData.coordinates.lng !== 0) {
-        try {
-          await addDoc(collection(db, "mapLocations"), {
-            uid: user.uid,
-            name: formData.location,
-            lat: formData.coordinates.lat,
-            lng: formData.coordinates.lng,
-            type: "visited",
-            entryId: entry.id,
-            updatedAt: new Date().toISOString()
-          })
-        } catch (error) {
-          console.log('Map location may already exist: ', error)
         }
       }
       
       toast.success(isDraft ? "Entry saved as draft!" : "Entry updated successfully!")
-      navigate('/dashboard')
+      
+      if (entry.tripId) {
+        navigate(`/trip/${entry.tripId}`);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Error updating entry:', error)
       toast.error("Failed to update entry. Please try again.")
     } finally {
       setIsLoading(false)
     }
-  }
+  }  
 
   const handleDelete = async () => {
     if (!entry) return
@@ -377,6 +421,35 @@ export default function EditEntryPage() {
       newImagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
     }
   }, [newImagePreviewUrls])
+
+  React.useEffect(() => {
+    const loadAssociatedData = async () => {
+      if (!entry) return;
+      
+      try {
+        if (entry.tripId) {
+          const tripRef = doc(db, "trips", entry.tripId);
+          const tripSnap = await getDoc(tripRef);
+          if (tripSnap.exists()) {
+            setAssociatedTrip({ id: tripSnap.id, ...tripSnap.data() } as Trip);
+          }
+        }
+        
+        if (entry.dayLogId) {
+          const dayLogRef = doc(db, "dayLogs", entry.dayLogId);
+          const dayLogSnap = await getDoc(dayLogRef);
+          if (dayLogSnap.exists()) {
+            setAssociatedDayLog({ id: dayLogSnap.id, ...dayLogSnap.data() } as DayLog);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading associated data:', error);
+      }
+    };
+  
+    loadAssociatedData();
+  }, [entry]);
+  
 
   if (isInitialLoading) {
     return (
@@ -578,6 +651,29 @@ export default function EditEntryPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {(associatedTrip || associatedDayLog) && (
+                <Card className="border-blue-200 bg-blue-50">
+                    <CardHeader>
+                    <CardTitle className="text-lg text-blue-800 flex items-center gap-2">
+                        <MapPin className="h-5 w-5" />
+                        Association
+                    </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                    {associatedTrip && (
+                        <div className="mb-2">
+                        <span className="font-medium text-blue-700">Trip:</span> {associatedTrip.name}
+                        </div>
+                    )}
+                    {associatedDayLog && (
+                        <div>
+                        <span className="font-medium text-blue-700">Day Log:</span> {associatedDayLog.location} ({associatedDayLog.date})
+                        </div>
+                    )}
+                    </CardContent>
+                </Card>
+            )}
 
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>

@@ -1,183 +1,260 @@
 "use client"
 
-import * as React from "react"
-import { motion } from "framer-motion"
-import { ChevronRight, ChevronLeft, Grid, MapPin, Plus, Loader2, Route, Search } from "lucide-react"
-import { collection, query, where, onSnapshot, doc, addDoc, deleteDoc, getDocs } from "firebase/firestore"
-import { Navbar } from "@/components/Navbar"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MapViewer } from "@/components/MapViewer"
-import { LocationModal } from "@/components/LocationModal"
-import { AnimatedButton } from "@/components/ui/animated-button"
-import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { db } from "@/api/firebase"
-import { useAuth } from '@/context/useAuth'
-import { type Entry, type Trip, type DayLog, type TripWithDetails } from "@/lib/types"
-import { toast } from "sonner"
-import { format } from "date-fns"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { ChevronRight, ChevronLeft, Grid, MapPin, Plus, Loader2, Route, Search } from "lucide-react";
+import { collection, query, where, onSnapshot, doc, addDoc, deleteDoc, getDocs, orderBy } from "firebase/firestore";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { db } from "@/api/firebase";
+import { useAuth } from '@/context/useAuth';
+import { type Entry, type MapLocationWithDetails, type Trip, type TripWithDetails, type TripRoute } from "@/lib/types";
+import { getPlaceDetails } from "@/services/geocoding";
+import { Navbar } from "@/components/Navbar";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MapViewer } from "@/components/MapViewer";
+import { LocationModal } from "@/components/LocationModal";
+import { AnimatedButton } from "@/components/ui/animated-button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 
-// Updated MapLocation interface to match Entry-based system
-interface MapLocationWithDetails {
-  id: string
-  name: string
-  lat: number
-  lng: number
-  type: "visited" | "planned" | "favorite"
-  uid?: string
-  trip?: Trip
-  dayLog?: DayLog
-  entry?: Entry
-  tripId?: string
-  isCustom?: boolean
+interface MapStats {
+  totalCountries: number;
+  totalCities: number;
+  totalDistance: number;
+  totalEntries: number;
+  favoriteDestination?: string;
 }
 
 export default function MapPage() {
-  const { user } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = React.useState(true)
-  const [trips, setTrips] = React.useState<TripWithDetails[]>([])
-  const [standaloneEntries, setStandaloneEntries] = React.useState<Entry[]>([])
-  const [customLocations, setCustomLocations] = React.useState<MapLocationWithDetails[]>([])
-  const [isLoading, setIsLoading] = React.useState(true)
-  const [showLocationDialog, setShowLocationDialog] = React.useState(false)
-  const [selectedTrip, setSelectedTrip] = React.useState<string>("")
+  const { user } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [trips, setTrips] = useState<TripWithDetails[]>([]);
+  const [standaloneEntries, setStandaloneEntries] = useState<Entry[]>([]);
+  const [customLocations, setCustomLocations] = useState<MapLocationWithDetails[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showLocationDialog, setShowLocationDialog] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState<string>("");
 
   // Custom location state
-  const [locationSearchQuery, setLocationSearchQuery] = React.useState("")
-  const [isAddingLocation, setIsAddingLocation] = React.useState(false)
+  const [locationSearchQuery, setLocationSearchQuery] = useState("");
+  const [isAddingLocation, setIsAddingLocation] = useState(false);
 
   // Location modal state
-  const [selectedLocation, setSelectedLocation] = React.useState<MapLocationWithDetails | null>(null)
-  const [showLocationModal, setShowLocationModal] = React.useState(false)
+  const [selectedLocation, setSelectedLocation] = useState<MapLocationWithDetails | null>(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
   
-  const [newLocation, setNewLocation] = React.useState({
+  const [newLocation, setNewLocation] = useState({
     name: "",
     type: "visited" as "visited" | "planned" | "favorite",
     coordinates: { lat: 0, lng: 0 },
     tripId: "",
     description: ""
-  })
+  });
+
+  // trip routes states
+  const [_tripRoutes, setTripRoutes] = useState<TripRoute[]>([]);
+  const [mapStats, setMapStats] = useState<MapStats | null>(null);
 
   const handleARViewClick = () => {
     toast.info("AR mode coming soon!", {
       description: "This feature is currently in development and will be available in a future update.",
-    })
-  }
+    });
+  };
 
-  React.useEffect(() => {
-    if (!user) return
+  useEffect(() => {
+    if (!user) return;
 
-    setIsLoading(true)
+    setIsLoading(true);
 
-    // Load trips with their entries
-    const tripsQuery = query(
-      collection(db, "trips"),
-      where("uid", "==", user.uid)
-    )
-
-    const unsubscribeTrips = onSnapshot(tripsQuery, async (snapshot) => {
-      const tripsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Trip[]
-
-      // For each trip, load its entries
-      const tripsWithDetails: TripWithDetails[] = []
-      for (const trip of tripsData) {
-        const entriesQuery = query(
-          collection(db, "entries"),
-          where("tripId", "==", trip.id),
-          where("isDraft", "!=", true)
-        )
-        
-        const entriesSnapshot = await getDocs(entriesQuery)
-        const recentEntries = entriesSnapshot.docs.map(doc => ({
+    const unsubscribeTrips = onSnapshot(
+      query(collection(db, "trips"), where("uid", "==", user.uid)),
+      async (snapshot) => {
+        const tripsData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        })) as Entry[]
+        })) as Trip[];
 
-        // Get unique locations count from entries
-        const locationCount = new Set(
-          recentEntries
-            .filter(e => e.coordinates && e.coordinates.lat && e.coordinates.lng)
-            .map(e => `${e.coordinates.lat},${e.coordinates.lng}`)
-        ).size
+        const tripsWithDetails: TripWithDetails[] = [];
+        for (const trip of tripsData) {
+          const entriesSnapshot = await getDocs(query(
+            collection(db, "entries"),
+            where("tripId", "==", trip.id),
+            where("isDraft", "!=", true)
+          ));
+          
+          const recentEntries = entriesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Entry[];
 
-        tripsWithDetails.push({
-          ...trip,
-          dayLogs: [], // We'll load these separately if needed
-          recentEntries: recentEntries.slice(0, 5), // Recent 5 entries
-          locationCount
-        })
+          const locationCount = new Set(
+            recentEntries
+              .filter(e => e.coordinates?.lat && e.coordinates?.lng)
+              .map(e => `${e.coordinates.lat},${e.coordinates.lng}`)
+          ).size;
+
+          tripsWithDetails.push({
+            ...trip,
+            dayLogs: [],
+            recentEntries: recentEntries.slice(0, 5),
+            locationCount
+          });
+        }
+
+        setTrips(tripsWithDetails);
       }
+    );
 
-      setTrips(tripsWithDetails)
-    })
+    const unsubscribeStandalone = onSnapshot(
+      query(
+        collection(db, "entries"),
+        where("uid", "==", user.uid),
+        where("isStandalone", "==", true),
+        where("isDraft", "!=", true)
+      ),
+      (snapshot) => {
+        setStandaloneEntries(snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Entry[]);
+      }
+    );
 
-    // Load standalone entries (entries not part of any trip)
-    const standaloneQuery = query(
-      collection(db, "entries"),
-      where("uid", "==", user.uid),
-      where("isStandalone", "==", true),
-      where("isDraft", "!=", true)
-    )
-
-    const unsubscribeStandalone = onSnapshot(standaloneQuery, (snapshot) => {
-      const standaloneData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Entry[]
-      setStandaloneEntries(standaloneData)
-    })
-
-    // Load custom locations (user-created locations without entries)
-    const customLocationsQuery = query(
-      collection(db, "mapLocations"),
-      where("uid", "==", user.uid),
-      where("isCustom", "==", true)
-    )
-
-    const unsubscribeCustom = onSnapshot(customLocationsQuery, (snapshot) => {
-      const customData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as MapLocationWithDetails[]
-      setCustomLocations(customData)
-      setIsLoading(false)
-    })
+    const unsubscribeCustom = onSnapshot(
+      query(
+        collection(db, "mapLocations"),
+        where("uid", "==", user.uid),
+        where("isCustom", "==", true)
+      ),
+      (snapshot) => {
+        setCustomLocations(snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as MapLocationWithDetails[]);
+        setIsLoading(false);
+      }
+    );
 
     return () => {
-      unsubscribeTrips()
-      unsubscribeStandalone()
-      unsubscribeCustom()
-    }
-  }, [user])
+      unsubscribeTrips();
+      unsubscribeStandalone();
+      unsubscribeCustom();
+    };
+  }, [user]);
 
-  const handleLocationSelect = (location: { lat: number; lng: number; address?: string }) => {
-    setNewLocation(prev => ({
-      ...prev,
-      coordinates: { lat: location.lat, lng: location.lng },
-      name: prev.name || location.address || `Location ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
-    }))
-  }
+  useEffect(() => {
+    const processTripsIntoRoutes = async () => {
+      if (!trips.length) return;
+  
+      const routes: TripRoute[] = [];
+      
+      for (const trip of trips) {
+        const tripEntries = await getDocs(query(
+          collection(db, "entries"),
+          where("tripId", "==", trip.id),
+          where("isDraft", "!=", true),
+          orderBy("timestamp", "asc")
+        ));
+  
+        const entries = tripEntries.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Entry[];
+  
+        const locations: MapLocationWithDetails[] = entries
+          .filter(entry => entry.coordinates?.lat && entry.coordinates?.lng)
+          .map(entry => ({
+            id: `trip-${trip.id}-${entry.id}`,
+            uid: entry.uid,
+            name: entry.location || entry.title,
+            lat: entry.coordinates.lat,
+            lng: entry.coordinates.lng,
+            type: "visited" as const,
+            tripId: trip.id,
+            trip,
+            entry,
+            isCustom: false
+          }));
+  
+        if (locations.length > 0) {
+          routes.push({
+            tripId: trip.id,
+            tripName: trip.name,
+            locations,
+            status: trip.status,
+            totalDistance: 0,
+            totalDuration: 0
+          });
+        }
+      }
+  
+      setTripRoutes(routes);
+      calculateMapStats(routes);
+    };
+  
+    processTripsIntoRoutes();
+  }, [trips]);
+  
+  const calculateMapStats = (routes: TripRoute[]) => {
+    const allLocations = routes.flatMap(route => route.locations);
+    const countries = new Set(allLocations.map(loc => loc.entry?.country).filter(Boolean));
+    const cities = new Set(allLocations.map(loc => loc.name));
+    
+    const locationCounts = new Map<string, number>();
+    allLocations.forEach(loc => {
+      const key = loc.entry?.country || loc.name;
+      locationCounts.set(key, (locationCounts.get(key) || 0) + 1);
+    });
+    
+    const favoriteDestination = Array.from(locationCounts.entries())
+      .sort((a, b) => b[1] - a[1])[0]?.[0];
+  
+    setMapStats({
+      totalCountries: countries.size,
+      totalCities: cities.size,
+      totalDistance: routes.reduce((sum, route) => sum + (route.totalDistance || 0), 0),
+      totalEntries: allLocations.length,
+      favoriteDestination
+    });
+  };
+
+  const handleLocationSelect = async (location: { lat: number; lng: number; address?: string }) => {
+    try {
+      const placeDetails = await getPlaceDetails(location.lat, location.lng);
+      setNewLocation(prev => ({
+        ...prev,
+        coordinates: { lat: location.lat, lng: location.lng },
+        name: prev.name || placeDetails.name || `Location ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+      }));
+    } catch (error) {
+      console.error("Geocoding failed:", error);
+      setNewLocation(prev => ({
+        ...prev,
+        coordinates: { lat: location.lat, lng: location.lng },
+        name: prev.name || `Location ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+      }));
+    }
+  };
 
   const handleLocationClick = (location: MapLocationWithDetails) => {
-    setSelectedLocation(location)
-    setShowLocationModal(true)
-  }
+    setSelectedLocation(location);
+    setShowLocationModal(true);
+  };
 
   const handleAddLocation = async () => {
     if (!user || !newLocation.name.trim() || !newLocation.coordinates.lat) {
-      toast.error("Please fill in all required fields and select a location")
-      return
+      toast.error("Please fill in all required fields and select a location");
+      return;
     }
   
-    setIsAddingLocation(true)
+    setIsAddingLocation(true);
     try {
       const locationData = {
         uid: user.uid,
@@ -190,12 +267,12 @@ export default function MapPage() {
         isCustom: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      }
+      };
   
-      await addDoc(collection(db, "mapLocations"), locationData)
+      await addDoc(collection(db, "mapLocations"), locationData);
       
-      toast.success(`Custom location "${newLocation.name}" added successfully!`)
-      setShowLocationDialog(false)
+      toast.success(`Custom location "${newLocation.name}" added successfully!`);
+      setShowLocationDialog(false);
       
       // Reset form
       setNewLocation({
@@ -204,44 +281,41 @@ export default function MapPage() {
         coordinates: { lat: 0, lng: 0 },
         tripId: "",
         description: ""
-      })
-      setLocationSearchQuery("")
+      });
+      setLocationSearchQuery("");
     } catch (error) {
-      console.error("Error adding location:", error)
-      toast.error("Failed to add location. Please try again.")
+      console.error("Error adding location:", error);
+      toast.error("Failed to add location. Please try again.");
     } finally {
-      setIsAddingLocation(false)
+      setIsAddingLocation(false);
     }
-  }
+  };
   
-
   const handleRemoveLocation = async (locationId: string) => {
     try {
-      await deleteDoc(doc(db, "mapLocations", locationId))
-      toast.success("Location removed")
+      await deleteDoc(doc(db, "mapLocations", locationId));
+      toast.success("Location removed");
     } catch (error) {
-      console.error("Error removing location:", error)
-      toast.error("Failed to remove location")
+      console.error("Error removing location:", error);
+      toast.error("Failed to remove location");
     }
-  }
+  };
 
   const getAllMapLocations = (): MapLocationWithDetails[] => {
-    const locations: MapLocationWithDetails[] = []
+    const locations: MapLocationWithDetails[] = [];
 
     // Add trip-based locations from entries
     trips.forEach(trip => {
-      // Get unique locations from trip entries
-      const tripLocations = new Map<string, Entry>()
+      const tripLocations = new Map<string, Entry>();
       trip.recentEntries.forEach(entry => {
-        if (entry.coordinates && entry.coordinates.lat && entry.coordinates.lng) {
-          const key = `${entry.coordinates.lat},${entry.coordinates.lng}`
+        if (entry.coordinates?.lat && entry.coordinates?.lng) {
+          const key = `${entry.coordinates.lat},${entry.coordinates.lng}`;
           if (!tripLocations.has(key)) {
-            tripLocations.set(key, entry)
+            tripLocations.set(key, entry);
           }
         }
-      })
+      });
 
-      // Convert entries to map locations
       tripLocations.forEach(entry => {
         locations.push({
           id: `trip-${trip.id}-${entry.id}`,
@@ -249,42 +323,42 @@ export default function MapPage() {
           name: entry.location || entry.title,
           lat: entry.coordinates.lat,
           lng: entry.coordinates.lng,
-          type: "visited", // Trip entries are considered visited
+          type: "visited",
           tripId: trip.id,
           trip,
           entry,
           isCustom: false
-        })
-      })
-    })
+        });
+      });
+    });
 
     // Add standalone entry locations
     standaloneEntries.forEach(entry => {
-      if (entry.coordinates && entry.coordinates.lat && entry.coordinates.lng) {
+      if (entry.coordinates?.lat && entry.coordinates?.lng) {
         locations.push({
           id: `standalone-${entry.id}`,
           uid: user?.uid || "",
           name: entry.location || entry.title,
           lat: entry.coordinates.lat,
           lng: entry.coordinates.lng,
-          type: "visited", // Standalone entries are visited
+          type: "visited",
           entry,
           isCustom: false
-        })
+        });
       }
-    })
+    });
 
     // Add custom locations
     customLocations.forEach(location => {
-      const trip = location.tripId ? trips.find(t => t.id === location.tripId) : undefined
+      const trip = location.tripId ? trips.find(t => t.id === location.tripId) : undefined;
       locations.push({
         ...location,
         trip
-      })
-    })
+      });
+    });
 
-    return locations
-  }
+    return locations;
+  };
 
   const getLocationsByType = (type: string) => {
     if (type === "trips") {
@@ -295,20 +369,20 @@ export default function MapPage() {
         trip,
         locationCount: trip.locationCount,
         status: trip.status
-      }))
+      }));
     }
-    return getAllMapLocations().filter(loc => loc.type === type)
-  }
+    return getAllMapLocations().filter(loc => loc.type === type);
+  };
 
   const getTripColor = (status: string) => {
     switch (status) {
-      case "completed": return "#d4af37" // Gold
-      case "active": return "#4c6b54" // Forest green
-      case "planned": return "#b22222" // Dark red
-      case "draft": return "#8B7355" // Brown
-      default: return "#d4af37"
+      case "completed": return "#d4af37";
+      case "active": return "#4c6b54";
+      case "planned": return "#b22222";
+      case "draft": return "#8B7355";
+      default: return "#d4af37";
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -321,7 +395,7 @@ export default function MapPage() {
           </div>
         </main>
       </div>
-    )
+    );
   }
 
   return (
@@ -337,6 +411,41 @@ export default function MapPage() {
             transition={{ duration: 0.3 }}
           >
             <div className="p-4">
+              {mapStats && (
+                <Card className="border-gold/20 bg-parchment-light mb-4 gap-2 py-4">
+                  <CardHeader>
+                    <CardTitle className="text-md text-deepbrown">Your Travel Stats</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-gold">{mapStats.totalCountries}</div>
+                        <div className="text-xs text-deepbrown/70">Countries</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-gold">{mapStats.totalCities}</div>
+                        <div className="text-xs text-deepbrown/70">Cities</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-gold">
+                          {(mapStats.totalDistance / 1000).toFixed(0)}k
+                        </div>
+                        <div className="text-xs text-deepbrown/70">KM Traveled</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-gold">{mapStats.totalEntries}</div>
+                        <div className="text-xs text-deepbrown/70">Entries</div>
+                      </div>
+                    </div>
+                    {mapStats.favoriteDestination && (
+                      <div className="text-center pt-2 border-t border-gold/20">
+                        <div className="text-sm text-deepbrown/70">Favorite Destination</div>
+                        <div className="font-medium text-deepbrown">{mapStats.favoriteDestination}</div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-display text-xl font-medium text-deepbrown">Travel Map</h2>
                 <div className="flex gap-2">

@@ -1,49 +1,36 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react"
-import { motion } from "framer-motion"
-import { Search, Layers, MapPin, Route, Navigation, Satellite, Map as MapIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { loadGoogleMapsApi } from "@/api/googleMapsLoader"
-import { getPlaceDetails, getPlaceDetailsFromPlaceId, getAutocompleteSuggestions } from "@/services/geocoding";
-import { type Entry, type Trip, type TripWithDetails, type AutocompletePrediction } from "@/lib/types"
-
-interface MapLocation {
-  id: string
-  name: string
-  lat: number
-  lng: number
-  type: "visited" | "planned" | "favorite"
-  uid?: string
-  entry?: Entry
-  trip?: Trip
-  tripId?: string
-}
+import { useEffect, useRef, useState, useCallback } from "react";
+import { motion } from "framer-motion";
+import { Search, Layers, MapPin, Route, Navigation, Satellite, Map as MapIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getPlaceDetailsFromPlaceId, getAutocompleteSuggestions } from "@/services/geocoding";
+import { MapService } from "@/services/mapService";
+import type { Trip, TripWithDetails, AutocompletePrediction, MapLocation, TripRoute } from "@/lib/types";
 
 interface MapViewerProps {
-  locations: MapLocation[]
-  trips?: TripWithDetails[]
-  selectedTripId?: string
-  className?: string
-  onLocationSelect?: (location: { lat: number; lng: number; address?: string }) => void
-  onLocationClick?: (location: MapLocation) => void
-  interactive?: boolean
-  center?: { lat: number; lng: number }
-  zoom?: number
-  showSearch?: boolean
-  showControls?: boolean
+  locations: MapLocation[];
+  trips?: TripWithDetails[];
+  selectedTripId?: string;
+  className?: string;
+  onLocationSelect?: (location: { lat: number; lng: number; address?: string }) => void;
+  onLocationClick?: (location: MapLocation) => void;
+  interactive?: boolean;
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  showSearch?: boolean;
+  showControls?: boolean;
+  tripRoutes?: TripRoute[];
+  selectedRouteId?: string;
+  showRouteOptimization?: boolean;
+  enableClustering?: boolean;
+  showStreetView?: boolean;
+  customMapStyle?: google.maps.MapTypeStyle[];
 }
-
-declare global {
-  interface Window {
-    google: any
-  }
-}
-
 
 export function MapViewer({ 
   locations, 
@@ -56,133 +43,213 @@ export function MapViewer({
   center = { lat: 20, lng: 0 }, 
   zoom = 2,
   showSearch = true,
-  showControls = true
+  showControls = true,
+  enableClustering = false,
 }: MapViewerProps) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const markersRef = useRef<Map<string, any>>(new Map())
-  const polylinesRef = useRef<Map<string, any>>(new Map())
-  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const trafficLayerRef = useRef<any>(null)
-  const transitLayerRef = useRef<any>(null)
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapServiceRef = useRef<MapService | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  
-  const [searchValue, setSearchValue] = useState("")
-  const [searchResults, setSearchResults] = useState<AutocompletePrediction[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSearching, setIsSearching] = useState(false)
-  const [showSearchResults, setShowSearchResults] = useState(false)
-  const [mapType, setMapType] = useState<string>("roadmap")
-  const [showTraffic, setShowTraffic] = useState(false)
-  const [showTransit, setShowTransit] = useState(false)
-  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null)
-  const [isInputFocused, _setIsInputFocused] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const [searchResults, setSearchResults] = useState<AutocompletePrediction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [mapType, setMapType] = useState<string>("roadmap");
+  const [showTraffic, setShowTraffic] = useState(false);
+  const [showTransit, setShowTransit] = useState(false);
+  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
-
-  // Memoize current map center for search bias
-  const currentMapCenter = useMemo(() => {
-    if (mapInstanceRef.current) {
-      const mapCenter = mapInstanceRef.current.getCenter();
-      if (mapCenter) {
-        return { lat: mapCenter.lat(), lng: mapCenter.lng() };
-      }
-    }
-    return center;
-  }, [center]);
-
-  // Initialize map only once
+  // Initialize map
   useEffect(() => {
     const initializeMap = async () => {
       try {
-        await loadGoogleMapsApi()
-        const { Map } = await window.google.maps.importLibrary("maps")
+        if (!mapRef.current) return;
         
-        if (!mapRef.current) return
+        const mapService = new MapService();
+        mapServiceRef.current = mapService;
+        
+        await mapService.initializeMap(
+          mapRef.current,
+          {
+            center,
+            zoom,
+            mapId: "4578ddca5379c217baab8a20",
+            disableDefaultUI: !showControls,
+            mapTypeControl: showControls,
+            streetViewControl: showControls,
+            fullscreenControl: showControls,
+            zoomControl: showControls,
+          },
+          interactive,
+          onLocationSelect
+        );
 
-        const mapOptions: any = {
-          center,
-          zoom,
-          mapId: "4578ddca5379c217baab8a20",
-          disableDefaultUI: !showControls,
-          mapTypeControl: showControls,
-          streetViewControl: showControls,
-          fullscreenControl: showControls,
-          zoomControl: showControls,
+        if (enableClustering) {
+          await mapService.initMarkerClusterer();
         }
 
-        const map = new Map(mapRef.current, mapOptions)
-        mapInstanceRef.current = map
-
-        // Initialize layers
-        trafficLayerRef.current = new window.google.maps.TrafficLayer()
-        transitLayerRef.current = new window.google.maps.TransitLayer()
-
-        // Interactive click handler
-        if (interactive) {
-          map.addListener("click", async (event: any) => {
-            const lat = event.latLng.lat()
-            const lng = event.latLng.lng()
-            
-            try {
-              const placeDetails = await getPlaceDetails(lat, lng)
-              onLocationSelect?.({ 
-                lat, 
-                lng, 
-                address: placeDetails.address 
-              })
-            } catch (error) {
-              console.error("Geocoding failed:", error)
-              onLocationSelect?.({ lat, lng })
-            }
-          })
-        }
-
-        // Initialize session token for search
-        if (window.google?.maps?.places?.AutocompleteSessionToken) {
-          sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
-        }
-
-        setIsLoading(false)
+        setIsLoading(false);
       } catch (error) {
-        console.error("Failed to initialize map:", error)
-        setIsLoading(false)
+        console.error("Failed to initialize map:", error);
+        setIsLoading(false);
       }
+    };
+
+    initializeMap();
+
+    return () => {
+      mapServiceRef.current = null;
+    };
+  }, [center, enableClustering, interactive, onLocationSelect, showControls, zoom]);
+
+  // Update map type
+  useEffect(() => {
+    if (!isLoading && mapServiceRef.current) {
+      mapServiceRef.current.setMapType(mapType);
     }
+  }, [mapType, isLoading]);
+
+  // Toggle traffic layer
+  useEffect(() => {
+    if (!isLoading && mapServiceRef.current) {
+      mapServiceRef.current.toggleTraffic(showTraffic);
+    }
+  }, [showTraffic, isLoading]);
+
+  // Toggle transit layer
+  useEffect(() => {
+    if (!isLoading && mapServiceRef.current) {
+      mapServiceRef.current.toggleTransit(showTransit);
+    }
+  }, [showTransit, isLoading]);
+
+  // Update markers when locations change
+  useEffect(() => {
+    if (!mapServiceRef.current || isLoading) return;
   
-    initializeMap()
-  }, []) // Only run once on mount
+    const updateMarkers = async () => {
+      const mapService = mapServiceRef.current!;
+      mapService.clearMarkers();
+      mapService.clearPolylines();
+  
+      // Prepare clustering if needed
+      if (enableClustering) {
+        await mapService.initMarkerClusterer();
+      }
+  
+      const tripLocations = new Map<string, MapLocation[]>();
+      const standaloneLocations: MapLocation[] = [];
+  
+      locations.forEach(location => {
+        if (location.tripId && location.trip) {
+          if (!tripLocations.has(location.tripId)) {
+            tripLocations.set(location.tripId, []);
+          }
+          tripLocations.get(location.tripId)!.push(location);
+        } else {
+          standaloneLocations.push(location);
+        }
+      });
+  
+      const markers: google.maps.marker.AdvancedMarkerElement[] = [];
+  
+      for (const [tripId, tripLocs] of tripLocations) {
+        const trip = trips.find(t => t.id === tripId);
+        if (!trip) continue;
+  
+        const isSelected = selectedTripId === tripId;
+        const tripColor = mapService.getTripColor(trip.status);
+        const opacity = selectedTripId && !isSelected ? 0.3 : 1.0;
+  
+        const sortedLocs = tripLocs.sort((a, b) => {
+          if (a.entry && b.entry) {
+            return new Date(a.entry.timestamp).getTime() - new Date(b.entry.timestamp).getTime();
+          }
+          return 0;
+        });
+  
+        if (sortedLocs.length > 1) {
+          const path = sortedLocs.map(loc => ({ lat: loc.lat, lng: loc.lng }));
+          const polyline = await mapService.createPolyline(path, {
+            geodesic: true,
+            strokeColor: tripColor,
+            strokeOpacity: opacity * 0.8,
+            strokeWeight: isSelected ? 4 : 2
+          });
+  
+          if (polyline) {
+            polyline.addListener('click', (event: any) => {
+              showTripInfoWindow(trip, event.latLng);
+            });
+          }
+        }
+  
+        for (const [index, location] of sortedLocs.entries()) {
+          const isFirst = index === 0;
+          const isLast = index === sortedLocs.length - 1;
+          const pin = mapService.createTripPin(tripColor, opacity, isFirst, isLast, index + 1);
+  
+          const marker = await mapService.createMarker(
+            { lat: location.lat, lng: location.lng },
+            pin
+          );
+  
+          if (marker) {
+            pin.addEventListener('click', (e: Event) => {
+              e.stopPropagation();
+              onLocationClick?.(location);
+            });
+            markers.push(marker);
+          }
+        }
+      }
+  
+      for (const location of standaloneLocations) {
+        const pinColor = location.type === "visited" ? "#d4af37" :
+                         location.type === "planned" ? "#4c6b54" : "#b22222";
+        const pin = mapService.createStandalonePin(pinColor);
+  
+        const marker = await mapService.createMarker(
+          { lat: location.lat, lng: location.lng },
+          pin
+        );
+  
+        if (marker) {
+          pin.addEventListener('click', (e: Event) => {
+            e.stopPropagation();
+            onLocationClick?.(location);
+          });
+          markers.push(marker);
+        }
+      }
+  
+      if (currentPosition) {
+        const pin = mapService.createCurrentLocationPin();
+        const marker = await mapService.createMarker(currentPosition, pin);
+        if (marker) markers.push(marker);
+      }
+  
+      if (enableClustering && markers.length > 0) {
+        await mapService.clusterMarkers(markers);
+      } else {
+        // if not clustering, manually set markers on map
+        markers.forEach(marker => {
+          marker.map = mapServiceRef.current!.getMapInstance();
+        });
+      }
+  
+      const allLocations = locations.map(loc => ({ lat: loc.lat, lng: loc.lng }));
+      if (currentPosition) allLocations.push(currentPosition);
+      mapService.fitBounds(allLocations);
+    };
+  
+    updateMarkers();
+  }, [locations, trips, selectedTripId, isLoading, onLocationClick, currentPosition, enableClustering]);  
 
-  // Handle map type changes
-  useEffect(() => {
-    if (mapInstanceRef.current && !isLoading) {
-      mapInstanceRef.current.setMapTypeId(mapType)
-    }
-  }, [mapType, isLoading])
-
-  // Handle layer toggles
-  useEffect(() => {
-    if (!mapInstanceRef.current || isLoading) return
-
-    if (showTraffic && trafficLayerRef.current) {
-      trafficLayerRef.current.setMap(mapInstanceRef.current)
-    } else if (trafficLayerRef.current) {
-      trafficLayerRef.current.setMap(null)
-    }
-  }, [showTraffic, isLoading])
-
-  useEffect(() => {
-    if (!mapInstanceRef.current || isLoading) return
-
-    if (showTransit && transitLayerRef.current) {
-      transitLayerRef.current.setMap(mapInstanceRef.current)
-    } else if (transitLayerRef.current) {
-      transitLayerRef.current.setMap(null)
-    }
-  }, [showTransit, isLoading])
-
-  // Debounced search functionality
+  // Handle search functionality
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -195,12 +262,12 @@ export function MapViewer({
     try {
       const results = await getAutocompleteSuggestions(
         query,
-        sessionTokenRef.current || undefined,
-        {
-          lat: currentMapCenter.lat,
-          lng: currentMapCenter.lng,
+        undefined, // No session token needed
+        mapServiceRef.current ? {
+          lat: mapServiceRef.current.getCenter()?.lat || 0,
+          lng: mapServiceRef.current.getCenter()?.lng || 0,
           radius: 50000
-        }
+        } : undefined
       );
       
       setSearchResults(results);
@@ -212,27 +279,21 @@ export function MapViewer({
     } finally {
       setIsSearching(false);
     }
-  }, [currentMapCenter]);
+  }, []);
 
-  // Handle search input with debouncing
   const handleSearchInput = useCallback((value: string) => {
     setSearchValue(value);
     
-    // Clear previous timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
   
-    // Set new timeout for debounced search
     searchTimeoutRef.current = setTimeout(() => {
       performSearch(value);
     }, 300);
   }, [performSearch]);
 
-  // Handle search result selection
   const handleSearchResultSelect = useCallback(async (result: AutocompletePrediction) => {
-    if (!mapInstanceRef.current || !result.placeId) return;
-  
     try {
       const placeDetails = await getPlaceDetailsFromPlaceId(result.placeId);
       
@@ -242,19 +303,13 @@ export function MapViewer({
       
       const { lat, lng } = placeDetails.coordinates;
       
-      mapInstanceRef.current.setCenter({ lat, lng });
-      mapInstanceRef.current.setZoom(15);
+      if (mapServiceRef.current) {
+        mapServiceRef.current.setCenter({ lat, lng });
+        mapServiceRef.current.setZoom(15);
+      }
       
       setSearchValue(placeDetails.name);
       setShowSearchResults(false);
-      
-      if (window.google?.maps?.places?.AutocompleteSessionToken) {
-        sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
-      }
-      
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 0);
       
       if (interactive && onLocationSelect) {
         onLocationSelect({ 
@@ -268,42 +323,66 @@ export function MapViewer({
     }
   }, [interactive, onLocationSelect]);
 
-  // Get user's current location
   const getCurrentLocation = useCallback(() => {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) return;
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const lat = position.coords.latitude
-        const lng = position.coords.longitude
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
         
-        setCurrentPosition({ lat, lng })
+        setCurrentPosition({ lat, lng });
         
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.setCenter({ lat, lng })
-          mapInstanceRef.current.setZoom(12)
+        if (mapServiceRef.current) {
+          mapServiceRef.current.setCenter({ lat, lng });
+          mapServiceRef.current.setZoom(12);
         }
       },
       (error) => {
-        console.error("Geolocation failed:", error)
+        console.error("Geolocation failed:", error);
       }
-    )
-  }, [])
+    );
+  }, []);
 
-  // Clear search
   const clearSearch = useCallback(() => {
-    setSearchValue("")
-    setSearchResults([])
-    setShowSearchResults(false)
-  }, [])
+    setSearchValue("");
+    setSearchResults([]);
+    setShowSearchResults(false);
+  }, []);
 
-  // Handle manual search trigger
   const handleManualSearch = useCallback(() => {
     if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
+      clearTimeout(searchTimeoutRef.current);
     }
-    performSearch(searchValue)
-  }, [searchValue, performSearch])
+    performSearch(searchValue);
+  }, [searchValue, performSearch]);
+
+  const showTripInfoWindow = (trip: Trip, position: { lat: number; lng: number }) => {
+    if (!mapServiceRef.current) return;
+    
+    mapServiceRef.current.showInfoWindow(`
+      <div class="p-3 max-w-xs">
+        <h3 class="font-bold text-lg mb-2">${trip.name}</h3>
+        <p class="text-gray-600 mb-2">${trip.description || 'No description'}</p>
+        <div class="flex items-center gap-2 text-sm text-gray-500">
+          <span class="capitalize">${trip.status}</span>
+          <span>•</span>
+          <span>${trip.totalEntries || 0} entries</span>
+          <span>•</span>
+          <span>${trip.countriesVisited?.length || 0} countries</span>
+        </div>
+      </div>
+    `, position);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleManualSearch();
+    }
+    if (e.key === "Escape") {
+      clearSearch();
+    }
+  };
 
   const handleSearchContainerClick = () => {
     if (!isInputFocused && searchInputRef.current) {
@@ -313,345 +392,103 @@ export function MapViewer({
     }
   };
 
-  // Update markers when locations change
-  useEffect(() => {
-    if (!mapInstanceRef.current || isLoading) return
-
-    // Clear existing markers and polylines
-    markersRef.current.forEach(marker => marker.setMap(null))
-    markersRef.current.clear()
-    polylinesRef.current.forEach(polyline => polyline.setMap(null))
-    polylinesRef.current.clear()
-
-    const createMarkers = async () => {
-      const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker")
-
-      // Group locations by trip
-      const tripLocations = new Map<string, MapLocation[]>()
-      const standaloneLocations: MapLocation[] = []
-
-      locations.forEach(location => {
-        if (location.tripId && location.trip) {
-          if (!tripLocations.has(location.tripId)) {
-            tripLocations.set(location.tripId, [])
-          }
-          tripLocations.get(location.tripId)!.push(location)
-        } else {
-          standaloneLocations.push(location)
-        }
-      })
-
-      // Create trip polylines and markers
-      tripLocations.forEach((tripLocs, tripId) => {
-        const trip = trips.find(t => t.id === tripId)
-        if (!trip) return
-
-        const isSelected = selectedTripId === tripId
-        const tripColor = getTripColor(trip.status)
-        const opacity = selectedTripId && !isSelected ? 0.3 : 1.0
-
-        // Sort locations by timestamp if available
-        const sortedLocs = tripLocs.sort((a, b) => {
-          if (a.entry && b.entry) {
-            return new Date(a.entry.timestamp).getTime() - new Date(b.entry.timestamp).getTime()
-          }
-          return 0
-        })
-
-        // Create polyline connecting trip locations
-        if (sortedLocs.length > 1) {
-          const path = sortedLocs.map(loc => ({ lat: loc.lat, lng: loc.lng }))
-          const polyline = new window.google.maps.Polyline({
-            path: path,
-            geodesic: true,
-            strokeColor: tripColor,
-            strokeOpacity: opacity * 0.8,
-            strokeWeight: isSelected ? 4 : 2,
-            map: mapInstanceRef.current
-          })
-
-          polylinesRef.current.set(tripId, polyline)
-
-          // Add click listener to polyline
-          polyline.addListener('click', (event: any) => {
-            showTripInfoWindow(trip, event.latLng)
-          })
-        }
-
-        // Create markers for each location in the trip
-        sortedLocs.forEach((location, index) => {
-          const isFirst = index === 0
-          const isLast = index === sortedLocs.length - 1
-          const pin = createTripPin(tripColor, opacity, isFirst, isLast, index + 1)
-
-          const marker = new AdvancedMarkerElement({
-            map: mapInstanceRef.current,
-            position: { lat: location.lat, lng: location.lng },
-            title: `${trip.name} - ${location.name}`,
-            content: pin,
-          })
-
-          // Add click listener for location modal
-          pin.addEventListener('click', (e: Event) => {
-            e.stopPropagation()
-            onLocationClick?.(location)
-          })
-
-          markersRef.current.set(`trip-${tripId}-${location.id}`, marker)
-        })
-      })
-
-      // Create standalone location markers
-      standaloneLocations.forEach((location) => {
-        const pinColor = getPinColor(location.type)
-        const pin = createStandalonePin(pinColor)
-
-        const marker = new AdvancedMarkerElement({
-          map: mapInstanceRef.current,
-          position: { lat: location.lat, lng: location.lng },
-          title: location.name,
-          content: pin,
-        })
-
-        pin.addEventListener('click', (e: Event) => {
-          e.stopPropagation()
-          onLocationClick?.(location)
-        })
-
-        markersRef.current.set(`standalone-${location.id}`, marker)
-      })
-
-      // Add current position marker if available
-      if (currentPosition) {
-        const currentPin = createCurrentLocationPin()
-        const currentMarker = new AdvancedMarkerElement({
-          map: mapInstanceRef.current,
-          position: currentPosition,
-          title: "Your Current Location",
-          content: currentPin,
-        })
-        markersRef.current.set('current-location', currentMarker)
-      }
-
-      // Auto-fit bounds if there are locations
-      if (locations.length > 0) {
-        const bounds = new window.google.maps.LatLngBounds()
-        locations.forEach(location => {
-          bounds.extend({ lat: location.lat, lng: location.lng })
-        })
-
-        if (currentPosition) {
-          bounds.extend(currentPosition)
-        }
-
-        if (locations.length === 1 && !currentPosition) {
-          mapInstanceRef.current.setCenter(bounds.getCenter())
-          mapInstanceRef.current.setZoom(12)
-        } else {
-          mapInstanceRef.current.fitBounds(bounds, { padding: 50 })
-        }
-      }
-    }
-
-    createMarkers()
-  }, [locations, trips, selectedTripId, isLoading, onLocationClick, currentPosition])
-
-  // Clean up timeouts
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // Helper functions for styling
-  const getTripColor = (status: string) => {
-    switch (status) {
-      case "completed": return "#d4af37" // Gold
-      case "active": return "#4c6b54" // Forest green
-      case "planned": return "#b22222" // Dark red
-      case "draft": return "#8B7355" // Brown
-      default: return "#d4af37"
-    }
-  }
-
-  const getPinColor = (type: string) => {
-    switch (type) {
-      case "visited": return "#d4af37"
-      case "planned": return "#4c6b54"
-      case "favorite": return "#b22222"
-      default: return "#d4af37"
-    }
-  }
-
-  const createTripPin = (color: string, opacity: number, isFirst: boolean, isLast: boolean, number: number) => {
-    const pin = document.createElement("div")
-    pin.className = "relative flex items-center justify-center transform transition-all hover:scale-110 cursor-pointer hover:z-10"
-    
-    const size = isFirst || isLast ? "w-10 h-10" : "w-8 h-8"
-    const borderSize = isFirst || isLast ? "border-3" : "border-2"
-    const textSize = isFirst || isLast ? "text-sm" : "text-xs"
-    
-    pin.innerHTML = `
-      <div class="${size} ${borderSize} border-white rounded-full shadow-lg flex items-center justify-center text-white ${textSize} font-bold hover:shadow-xl transition-all" 
-           style="background-color: ${color}; opacity: ${opacity}">
-        ${isFirst ? '▶' : isLast ? '🏁' : number}
-      </div>
-      ${isFirst ? '<div class="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Trip Start</div>' : ''}
-      ${isLast ? '<div class="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Trip End</div>' : ''}
-    `
-    return pin
-  }
-
-  const createStandalonePin = (color: string) => {
-    const pin = document.createElement("div")
-    pin.className = "w-8 h-8 rounded-full border-2 border-white shadow-lg transform transition-all hover:scale-110 cursor-pointer hover:shadow-xl hover:z-10 relative"
-    pin.style.backgroundColor = color
-    
-    // Add pulsing animation for standalone pins
-    pin.innerHTML = `
-      <div class="w-full h-full rounded-full animate-pulse absolute inset-0" 
-           style="background-color: ${color}; opacity: 0.3; transform: scale(1.5);"></div>
-    `
-    return pin
-  }
-
-  const createCurrentLocationPin = () => {
-    const pin = document.createElement("div")
-    pin.className = "w-6 h-6 rounded-full border-2 border-blue-500 bg-blue-400 shadow-lg relative animate-pulse"
-    
-    pin.innerHTML = `
-      <div class="absolute inset-0 rounded-full border-2 border-blue-400 animate-ping"></div>
-      <div class="absolute inset-1 rounded-full bg-blue-500"></div>
-    `
-    return pin
-  }
-
-  const showTripInfoWindow = (trip: Trip, position: any) => {
-    const infoWindow = new window.google.maps.InfoWindow({
-      content: `
-        <div class="p-3 max-w-xs">
-          <h3 class="font-bold text-lg mb-2">${trip.name}</h3>
-          <p class="text-gray-600 mb-2">${trip.description || 'No description'}</p>
-          <div class="flex items-center gap-2 text-sm text-gray-500">
-            <span class="capitalize">${trip.status}</span>
-            <span>•</span>
-            <span>${trip.totalEntries || 0} entries</span>
-            <span>•</span>
-            <span>${trip.countriesVisited?.length || 0} countries</span>
-          </div>
-        </div>
-      `,
-      position: position
-    })
-    infoWindow.open(mapInstanceRef.current)
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleManualSearch()
-    }
-    if (e.key === "Escape") {
-      clearSearch()
-    }
-  }
-
   return (
     <div className={cn("relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden", className)}>
       {/* Search and Controls */}
       {showSearch && (
         <div className="absolute top-4 left-4 right-4 z-10 flex justify-between">
-        <div className="relative flex gap-2">
-          <div 
-            className="relative search-input-container"
-            onClick={handleSearchContainerClick}
-          >
-            <Popover open={showSearchResults} onOpenChange={setShowSearchResults}>
-              <PopoverTrigger asChild>
-                <div>
-                  <Input
-                    ref={searchInputRef}
-                    placeholder="Search locations..."
-                    className="pl-10 pr-10 bg-white/95 backdrop-blur-sm border-2 border-gray-200 shadow-lg w-80 h-12 text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl"
-                    value={searchValue}
-                    onChange={(e) => {
-                      handleSearchInput(e.target.value);
-                      if (e.target.value) {
-                        setShowSearchResults(true);
-                      }
-                    }}
-                    onKeyDown={handleKeyPress}
-                    onFocus={() => {
-                      if (searchValue && searchResults.length > 0) {
-                        setShowSearchResults(true);
-                      }
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => setShowSearchResults(false), 200);
-                    }}
-                  />
-                </div>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="p-0 w-80 bg-white/98 backdrop-blur-sm shadow-2xl border-2 border-gray-200 rounded-xl mt-2" 
-                align="start"
-                onPointerDownOutside={(e) => {
-                  if (!(e.target as HTMLElement).closest('.search-input-container')) {
-                    setShowSearchResults(false);
-                  }
-                }}
-                onOpenAutoFocus={(e) => e.preventDefault()}
-                onCloseAutoFocus={(e) => e.preventDefault()}
-              >
-                <div className="max-h-80 overflow-y-auto">
-                  {searchResults.length === 0 && searchValue && !isSearching ? (
-                    <div className="p-4 text-center text-gray-500">
-                      No results found for "{searchValue}"
-                    </div>
-                  ) : (
-                    searchResults.map((result, index) => (
-                      <div
-                        key={`${result.placeId}-${index}`}
-                        className="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          handleSearchResultSelect(result);
-                          setShowSearchResults(false);
-                        }}
-                      >
-                        <div className="font-semibold text-gray-800 text-base mb-1">
-                          {result.structuredFormatting.mainText}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {result.structuredFormatting.secondaryText}
-                        </div>
+          <div className="relative flex gap-2">
+            <div 
+              className="relative search-input-container"
+              onClick={handleSearchContainerClick}
+            >
+              <Popover open={showSearchResults} onOpenChange={setShowSearchResults}>
+                <PopoverTrigger asChild>
+                  <div>
+                    <Input
+                      ref={searchInputRef}
+                      placeholder="Search locations..."
+                      className="pl-10 pr-10 bg-white/95 backdrop-blur-sm border-2 border-gray-200 shadow-lg w-80 h-12 text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl"
+                      value={searchValue}
+                      onChange={(e) => {
+                        handleSearchInput(e.target.value);
+                        if (e.target.value) {
+                          setShowSearchResults(true);
+                        }
+                      }}
+                      onKeyDown={handleKeyPress}
+                      onFocus={() => {
+                        setIsInputFocused(true);
+                        if (searchValue && searchResults.length > 0) {
+                          setShowSearchResults(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        setIsInputFocused(false);
+                        setTimeout(() => setShowSearchResults(false), 200);
+                      }}
+                    />
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="p-0 w-80 bg-white/98 backdrop-blur-sm shadow-2xl border-2 border-gray-200 rounded-xl mt-2" 
+                  align="start"
+                  onPointerDownOutside={(e) => {
+                    if (!(e.target as HTMLElement).closest('.search-input-container')) {
+                      setShowSearchResults(false);
+                    }
+                  }}
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  onCloseAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="max-h-80 overflow-y-auto">
+                    {searchResults.length === 0 && searchValue && !isSearching ? (
+                      <div className="p-4 text-center text-gray-500">
+                        No results found for "{searchValue}"
                       </div>
-                    ))
-                  )}
+                    ) : (
+                      searchResults.map((result, index) => (
+                        <div
+                          key={`${result.placeId}-${index}`}
+                          className="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            handleSearchResultSelect(result);
+                            setShowSearchResults(false);
+                          }}
+                        >
+                          <div className="font-semibold text-gray-800 text-base mb-1">
+                            {result.structuredFormatting.mainText}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {result.structuredFormatting.secondaryText}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                 </div>
-              </PopoverContent>
-            </Popover>
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            {isSearching && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-              </div>
-            )}
-            {searchValue && !isSearching && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearSearch();
-                  searchInputRef.current?.focus();
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xl font-bold w-6 h-6 flex items-center justify-center"
-              >
-                ×
-              </button>
-            )}
+              )}
+              {searchValue && !isSearching && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearSearch();
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xl font-bold w-6 h-6 flex items-center justify-center"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
           {showControls && (
             <div className="flex gap-2">
@@ -832,5 +669,5 @@ export function MapViewer({
         </div>
       )}
     </div>
-  )
+  );
 }

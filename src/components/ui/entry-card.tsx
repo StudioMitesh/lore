@@ -80,12 +80,12 @@ export function EntryCard({
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleCardClick = () => {
-    navigate(isDraft ? `/edit-entry/${id}` : `/entry/${id}`)
+    navigate(isDraft ? `/entry/edit/${id}` : `/entry/${id}`)
   }
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation()
-    navigate(`/edit-entry/${id}`)
+    navigate(`/entry/edit/${id}`)
   }
 
   const handleView = (e: React.MouseEvent) => {

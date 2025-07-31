@@ -3,8 +3,8 @@
 
 import * as React from "react"
 import { motion } from "framer-motion"
-import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive, Search } from "lucide-react"
-import { collection, addDoc, doc, updateDoc, getDoc } from "firebase/firestore"
+import { Save, ImageIcon, MapPin, Calendar, X, Plus, Tag, Globe, BookOpen, Camera, Map, Archive, Search, Minus } from "lucide-react"
+import { collection, addDoc, doc, updateDoc, getDoc, query, where, getDocs } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { db, storage } from "@/api/firebase"
 import { useAuth } from '@/context/useAuth'
-import { type Entry, type UserProfile, type AutocompletePrediction } from "@/lib/types"
+import { type Entry, type UserProfile, type AutocompletePrediction, type DayLog, type Trip } from "@/lib/types"
 import { toast } from "sonner"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { EntryImages } from "@/components/EntryImages"
 import { getNearbyPlaces, getPlaceDetails, getPlaceDetailsFromPlaceId, getAutocompleteSuggestions } from "@/services/geocoding"
 
@@ -58,6 +58,16 @@ export default function NewEntryPage() {
   const [currentTag, setCurrentTag] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
   const [locationSelected, setLocationSelected] = React.useState(false)
+  const [searchParams] = useSearchParams()
+  const tripId = searchParams.get('tripId')
+  const dayLogId = searchParams.get('dayLogId')
+  const [associatedTrip, setAssociatedTrip] = React.useState<Trip | null>(null)
+  const [associatedDayLog, _setAssociatedDayLog] = React.useState<DayLog | null>(null)
+  const [showTripAssociation, setShowTripAssociation] = React.useState(false);
+  const [selectedTrip, setSelectedTrip] = React.useState<Trip | null>(null);
+  const [availableTrips, setAvailableTrips] = React.useState<Trip[]>([]);
+  const [isLoadingTrips, setIsLoadingTrips] = React.useState(false);
+
 
   // Search and autocomplete state
   const searchInputRef = React.useRef<HTMLInputElement>(null);
@@ -72,9 +82,6 @@ export default function NewEntryPage() {
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
-
-  // Enhanced search functionality
-  // Update the handleSearchInputChange function
 
   const performSearch = React.useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -377,6 +384,90 @@ export default function NewEntryPage() {
     return true
   }
 
+  const createMapLocation = async (entryId: string, entryData: Omit<Entry, 'id'>) => {
+    if (entryData.coordinates.lat === 0 && entryData.coordinates.lng === 0) return
+  
+    try {
+      await addDoc(collection(db, "mapLocations"), {
+        uid: entryData.uid,
+        name: entryData.location,
+        lat: entryData.coordinates.lat,
+        lng: entryData.coordinates.lng,
+        type: "visited" as const,
+        tripId: tripId || undefined,
+        dayLogId: dayLogId || undefined,
+        entryId: entryId,
+        isCustom: false,
+        createdAt: new Date().toISOString()
+      })
+    } catch (error) {
+      console.error('Error creating map location:', error)
+    }
+  }
+
+  const updateAssociatedRecords = async (entryId: string) => {
+    try {
+      if (tripId && associatedTrip) {
+        const tripRef = doc(db, "trips", tripId)
+        const updatedEntryIDs = [...(associatedTrip.entryIDs || []), entryId]
+        await updateDoc(tripRef, {
+          entryIDs: updatedEntryIDs,
+          totalEntries: updatedEntryIDs.length,
+          updatedAt: new Date().toISOString()
+        })
+      }
+  
+      if (dayLogId && associatedDayLog) {
+        const dayLogRef = doc(db, "dayLogs", dayLogId)
+        const updatedEntryIds = [...(associatedDayLog.entryIds || []), entryId]
+        await updateDoc(dayLogRef, {
+          entryIds: updatedEntryIds,
+          totalEntries: updatedEntryIds.length,
+          updatedAt: new Date().toISOString()
+        })
+      }
+    } catch (error) {
+      console.error('Error updating associated records:', error)
+    }
+  }
+
+  const loadUserTrips = async () => {
+    if (!user) return;
+    
+    setIsLoadingTrips(true);
+    try {
+      const tripsQuery = query(
+        collection(db, "trips"),
+        where("uid", "==", user.uid)
+      );
+      const tripsSnapshot = await getDocs(tripsQuery);
+      const trips = tripsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Trip));
+      setAvailableTrips(trips);
+      
+      // If we came from a trip page, auto-select that trip
+      if (tripId) {
+        const matchingTrip = trips.find(t => t.id === tripId);
+        if (matchingTrip) {
+          setSelectedTrip(matchingTrip);
+          setAssociatedTrip(matchingTrip);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading trips:', error);
+      toast.error('Failed to load your trips');
+    } finally {
+      setIsLoadingTrips(false);
+    }
+  };
+  
+  React.useEffect(() => {
+    loadUserTrips();
+  }, [user]);
+  
+
   const handleSave = async (isDraft = false) => {
     if (!user) {
       toast.error("You must be logged in to save an entry")
@@ -391,6 +482,8 @@ export default function NewEntryPage() {
 
       const entryData: Omit<Entry, 'id'> = {
         uid: user.uid,
+        tripId: selectedTrip?.id || undefined,
+        dayLogId: dayLogId || undefined,
         title: formData.title,
         content: formData.content,
         timestamp: formData.timestamp,
@@ -403,43 +496,52 @@ export default function NewEntryPage() {
         createdAt: new Date().toISOString(),
         isDraft,
         isFavorite: false,
-        isStandalone: true,
+        isStandalone: !tripId && !dayLogId,
         placeId: formData.placeId
       }
-
+  
       const docRef = await addDoc(collection(db, "entries"), entryData)
+      const entryId = docRef.id
       
       const newEntry: Entry = {
-        id: docRef.id,
+        id: entryId,
         ...entryData
       }
-
+  
+      await createMapLocation(entryId, entryData)
+  
+      await updateAssociatedRecords(entryId)
+  
       if (!isDraft) {
         await updateUserStats(newEntry)
-      }
-
-      if (!isDraft) {
+        
         await addDoc(collection(db, "timelineEvents"), {
-          id: docRef.id,
+          id: entryId,
           uid: user.uid,
           title: formData.title,
           timestamp: formData.timestamp,
           location: formData.location,
           country: formData.country,
           type: formData.type,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          tripId: tripId || undefined,
+          dayLogId: dayLogId || undefined
         })
       }
       
       toast.success(isDraft ? "Entry saved as draft!" : "Entry saved successfully!")
-      navigate('/dashboard')
+      if (tripId) {
+        navigate(`/trip/${tripId}`);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Error saving entry:', error)
       toast.error("Failed to save entry. Please try again.")
     } finally {
       setIsLoading(false)
     }
-  }
+  }  
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -460,6 +562,93 @@ export default function NewEntryPage() {
       }
     };
   }, [imagePreviewUrls]);
+
+  React.useEffect(() => {
+    if (tripId && !associatedTrip) {
+      const verifyTrip = async () => {
+        try {
+          const tripRef = doc(db, "trips", tripId);
+          const tripSnap = await getDoc(tripRef);
+          if (tripSnap.exists()) {
+            setAssociatedTrip({ id: tripSnap.id, ...tripSnap.data() } as Trip);
+          }
+        } catch (error) {
+          console.error('Error verifying trip:', error);
+        }
+      };
+      verifyTrip();
+    }
+  }, [tripId]);
+
+  const TripAssociationSection = () => (
+    <Card className="border-gold/20 bg-parchment-light">
+      <CardHeader>
+        <CardTitle className="text-lg text-deepbrown flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-deepbrown/50" />
+          Trip Association (Optional)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {selectedTrip ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-deepbrown/50">Selected Trip:</p>
+                <p className="text-deepbrown">{selectedTrip.name}</p>
+                {selectedTrip.startDate && (
+                  <p className="text-sm text-deepbrown/50">
+                    {new Date(selectedTrip.startDate).toLocaleDateString()} - 
+                    {selectedTrip.endDate ? new Date(selectedTrip.endDate).toLocaleDateString() : 'Ongoing'}
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-deepbrown border-gold/50 hover:bg-gold/10"
+                onClick={() => {
+                  setSelectedTrip(null);
+                  setAssociatedTrip(null);
+                }}
+              >
+                Remove
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Select
+            onValueChange={(tripId) => {
+              const trip = availableTrips.find(t => t.id === tripId);
+              if (trip) {
+                setSelectedTrip(trip);
+                setAssociatedTrip(trip);
+              }
+            }}
+            disabled={isLoadingTrips}
+          >
+            <SelectTrigger className="bg-gold/20 border-gold/50 text-deepbrown">
+              <SelectValue placeholder={isLoadingTrips ? "Loading trips..." : "Select a trip to associate"} />
+            </SelectTrigger>
+            <SelectContent className="bg-parchment border-gold/30 shadow-lg">
+              {availableTrips.map(trip => (
+                <SelectItem 
+                  key={trip.id} 
+                  value={trip.id}
+                  className="hover:bg-gold/10 focus:bg-gold/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-deepbrown/50" />
+                    <span className="text-deepbrown">{trip.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </CardContent>
+    </Card>
+  );  
+  
 
   return (
     <div className="min-h-screen flex flex-col parchment-texture">
@@ -709,6 +898,17 @@ export default function NewEntryPage() {
               </CardContent>
             </Card>
 
+            <Button
+              variant="outline"
+              className="border-gold/20 bg-parchment-light text-deepbrown mb-4"
+              onClick={() => setShowTripAssociation(!showTripAssociation)}
+            >
+              {showTripAssociation ? <Minus className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
+              {showTripAssociation ? 'Hide Trip Association' : 'Associate with a Trip (Optional)'}
+            </Button>
+
+            {showTripAssociation && <TripAssociationSection />}
+
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
                 <CardTitle className="text-xl text-deepbrown">Your Story *</CardTitle>
@@ -846,7 +1046,8 @@ export default function NewEntryPage() {
                     onLocationSelect={handleLocationSelect}
                     interactive={true}
                     center={locationSelected ? formData.coordinates : undefined}
-                    zoom={locationSelected ? 10 : 2}
+                    zoom={locationSelected ? 12 : 2}
+                    showSearch={false}
                   />
                 </div>
                 {locationSelected && (

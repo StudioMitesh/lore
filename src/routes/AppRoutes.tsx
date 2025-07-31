@@ -74,7 +74,7 @@ const AppRoutes = () => {
           }
         />
         <Route
-          path="/new-entry"
+          path="/entry/new"
           element={
             <PageWrapper>
               <ProtectedRoute>
@@ -84,7 +84,7 @@ const AppRoutes = () => {
           }
         />
         <Route
-          path="/edit-entry/:id"
+          path="/entry/edit"
           element={
             <PageWrapper>
               <ProtectedRoute>

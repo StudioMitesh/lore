@@ -81,7 +81,7 @@ export function Navbar() {
             )
         })}
 
-        <AnimatedButton onClick={() => navigate('/new-entry')} animationType="glow" className="ml-1">
+        <AnimatedButton onClick={() => navigate('/entry/new')} animationType="glow" className="ml-1">
             <Plus className="mr-1 h-4 w-2" />
             New Entry
         </AnimatedButton>
@@ -124,7 +124,7 @@ export function Navbar() {
                 )
             })}
 
-            <AnimatedButton onClick={() => navigate('/new-entry')} className="mt-4 w-full" animationType="glow">
+            <AnimatedButton onClick={() => navigate('/entry/new')} className="mt-4 w-full" animationType="glow">
                 <Plus className="mr-2 h-4 w-4" />
                 New Entry
             </AnimatedButton>

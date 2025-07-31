@@ -272,7 +272,7 @@ export default function EntryDisplayPage() {
                 {isOwner && (
                   <Button
                     variant="outline"
-                    onClick={() => navigate(`/edit-entry/${entry.id}`)}
+                    onClick={() => navigate(`/entry/edit/${entry.id}`)}
                     className="border-gold/30 bg-transparent"
                   >
                     <Edit3 className="mr-2 h-4 w-4" />
@@ -488,7 +488,7 @@ export default function EntryDisplayPage() {
                     <Button 
                       variant="outline" 
                       className="w-full justify-start border-gold/30 bg-transparent"
-                      onClick={() => navigate(`/edit-entry/${entry.id}`)}
+                      onClick={() => navigate(`/entry/edit/${entry.id}`)}
                     >
                       <Edit3 className="mr-2 h-4 w-4" />
                       Edit Entry
