@@ -65,6 +65,7 @@ export default function MapPage() {
   // trip routes states
   const [_tripRoutes, setTripRoutes] = useState<TripRoute[]>([]);
   const [mapStats, setMapStats] = useState<MapStats | null>(null);
+  const [showMapStats, _setShowMapStats] = useState(false);
 
   const handleARViewClick = () => {
     toast.info("AR mode coming soon!", {
@@ -479,7 +480,7 @@ export default function MapPage() {
             transition={{ duration: 0.3 }}
           >
             <div className="p-4">
-              {mapStats && (
+              {showMapStats && mapStats && (
                 <Card className="border-gold/20 bg-parchment-light mb-4 gap-2 py-4">
                   <CardHeader>
                     <CardTitle className="text-md text-deepbrown">Your Travel Stats</CardTitle>

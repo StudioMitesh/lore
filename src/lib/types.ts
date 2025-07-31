@@ -35,8 +35,8 @@ export interface UserProfile {
   
   export interface Entry {
     id: string
-    tripId?: string
-    dayLogId?: string
+    tripId?: string | null
+    dayLogId?: string | null
     uid: string
     title: string
     content: string
@@ -102,8 +102,8 @@ export interface UserProfile {
     country: string
     type: "journal" | "photo" | "map" | "artifact" | "event"
     createdAt: string
-    tripId?: string
-    dayLogId?: string
+    tripId?: string | null
+    dayLogId?: string | null
   }
   
   export interface Badge {

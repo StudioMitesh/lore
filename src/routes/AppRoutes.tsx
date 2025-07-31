@@ -84,7 +84,7 @@ const AppRoutes = () => {
           }
         />
         <Route
-          path="/entry/edit"
+          path="/entry/edit/:id"
           element={
             <PageWrapper>
               <ProtectedRoute>

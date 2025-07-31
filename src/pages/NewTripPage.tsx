@@ -191,17 +191,17 @@ export default function NewTripPage() {
     <div className="min-h-screen flex flex-col parchment-texture">
       <Navbar />
       
-      <main className="flex-1 pt-24 pb-16">
-        <div className="container max-w-4xl mx-auto px-4">
-          <div className="flex justify-between items-center mb-8">
+      <main className="flex-1 pt-16 sm:pt-20 lg:pt-24 pb-8 sm:pb-12 lg:pb-16">
+        <div className="container max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
             <div>
-              <h1 className="font-display text-3xl font-bold text-deepbrown">Create New Trip</h1>
-              <p className="text-deepbrown/70 mt-1">Plan and organize your next adventure</p>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-deepbrown">Create New Trip</h1>
+              <p className="text-sm sm:text-base text-deepbrown/70 mt-1">Plan and organize your next adventure</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
               <Button 
                 variant="outline" 
-                className="border-gold/30 bg-transparent"
+                className="border-gold/30 bg-transparent text-sm sm:text-base flex-1 sm:flex-none"
                 onClick={() => handleSave(true)}
                 disabled={isLoading}
               >
@@ -211,18 +211,18 @@ export default function NewTripPage() {
                 animationType="wax-stamp"
                 onClick={() => handleSave(false)}
                 disabled={isLoading}
-                className="min-w-[140px]"
+                className="min-w-[120px] sm:min-w-[140px] text-sm sm:text-base flex-1 sm:flex-none"
               >
                 {isLoading ? (
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                   >
-                    <Save className="h-4 w-4" />
+                    <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </motion.div>
                 ) : (
                   <>
-                    <Save className="mr-2 h-4 w-4" />
+                    <Save className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     Create Trip
                   </>
                 )}
@@ -230,46 +230,46 @@ export default function NewTripPage() {
             </div>
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
-                <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
-                  <Plane className="h-5 w-5" />
+                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
+                  <Plane className="h-4 w-4 sm:h-5 sm:w-5" />
                   Trip Details
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Trip Name *</Label>
+                  <Label htmlFor="name" className="text-sm sm:text-base">Trip Name *</Label>
                   <Input
                     id="name"
                     placeholder="Enter your trip name (e.g., 'European Adventure 2024')"
-                    className="bg-parchment border-gold/30"
+                    className="bg-parchment border-gold/30 text-sm sm:text-base"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description" className="text-sm sm:text-base">Description</Label>
                   <Textarea
                     id="description"
                     placeholder="Describe your trip plans, goals, or what makes this adventure special..."
-                    className="min-h-[100px] bg-parchment border-gold/30 resize-none"
+                    className="min-h-[100px] bg-parchment border-gold/30 resize-none text-sm sm:text-base"
                     value={formData.description}
                     onChange={(e) => handleInputChange('description', e.target.value)}
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date *</Label>
+                    <Label htmlFor="startDate" className="text-sm sm:text-base">Start Date *</Label>
                     <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-deepbrown/50" />
                       <Input 
                         id="startDate" 
                         type="date" 
-                        className="pl-9 bg-parchment border-gold/30"
+                        className="pl-9 bg-parchment border-gold/30 text-sm sm:text-base"
                         value={formData.startDate}
                         onChange={(e) => handleInputChange('startDate', e.target.value)}
                       />
@@ -277,13 +277,13 @@ export default function NewTripPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="endDate">End Date</Label>
+                    <Label htmlFor="endDate" className="text-sm sm:text-base">End Date</Label>
                     <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-deepbrown/50" />
                       <Input 
                         id="endDate" 
                         type="date" 
-                        className="pl-9 bg-parchment border-gold/30"
+                        className="pl-9 bg-parchment border-gold/30 text-sm sm:text-base"
                         value={formData.endDate}
                         onChange={(e) => handleInputChange('endDate', e.target.value)}
                         min={formData.startDate}
@@ -292,28 +292,28 @@ export default function NewTripPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
+                    <Label htmlFor="status" className="text-sm sm:text-base">Status</Label>
                     <Select 
                       value={formData.status} 
                       onValueChange={(value: any) => handleInputChange('status', value)}
                     >
-                      <SelectTrigger className="bg-parchment border-gold/30 w-full">
+                      <SelectTrigger className="bg-parchment border-gold/30 w-full text-sm sm:text-base">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent className="bg-parchment border-gold/30 shadow-lg">
-                        <SelectItem value="draft">
+                        <SelectItem value="draft" className="text-sm sm:text-base">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-gray-500" />
                             Draft
                           </div>
                         </SelectItem>
-                        <SelectItem value="planned">
+                        <SelectItem value="planned" className="text-sm sm:text-base">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-yellow-500" />
                             Planned
                           </div>
                         </SelectItem>
-                        <SelectItem value="active">
+                        <SelectItem value="active" className="text-sm sm:text-base">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-blue-500" />
                             Active
@@ -333,8 +333,8 @@ export default function NewTripPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-xl text-deepbrown">Cover Photo</CardTitle>
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <CardTitle className="text-lg sm:text-xl text-deepbrown">Cover Photo</CardTitle>
                 <div>
                   <input
                     type="file"
@@ -346,10 +346,10 @@ export default function NewTripPage() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="border-gold/30 bg-transparent"
+                    className="border-gold/30 bg-transparent text-sm sm:text-base w-full sm:w-auto"
                     onClick={() => document.getElementById('cover-upload')?.click()}
                   >
-                    <ImageIcon className="mr-2 h-4 w-4" />
+                    <ImageIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     {coverImage ? 'Change Photo' : 'Add Cover Photo'}
                   </Button>
                 </div>
@@ -365,22 +365,22 @@ export default function NewTripPage() {
                     <img
                       src={coverImagePreview}
                       alt="Trip cover"
-                      className="w-full h-64 object-cover rounded-lg border border-gold/20"
+                      className="w-full h-48 sm:h-64 object-cover rounded-lg border border-gold/20"
                     />
                     <Button
                       variant="destructive"
                       size="icon"
-                      className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={handleRemoveCoverImage}
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </Button>
                   </motion.div>
                 ) : (
-                  <div className="border-2 border-dashed border-gold/30 rounded-lg p-8 text-center">
-                    <ImageIcon className="h-12 w-12 text-gold/50 mx-auto mb-4" />
-                    <p className="text-deepbrown/70 mb-2">No cover photo added yet</p>
-                    <p className="text-sm text-deepbrown/50">
+                  <div className="border-2 border-dashed border-gold/30 rounded-lg p-6 sm:p-8 text-center">
+                    <ImageIcon className="h-10 w-10 sm:h-12 sm:w-12 text-gold/50 mx-auto mb-3 sm:mb-4" />
+                    <p className="text-sm sm:text-base text-deepbrown/70 mb-2">No cover photo added yet</p>
+                    <p className="text-xs sm:text-sm text-deepbrown/50">
                       Add a beautiful cover photo to represent your trip
                     </p>
                   </div>
@@ -390,16 +390,16 @@ export default function NewTripPage() {
 
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
-                <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
-                  <Tag className="h-5 w-5" />
+                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
+                  <Tag className="h-4 w-4 sm:h-5 sm:w-5" />
                   Tags
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     placeholder="Add a tag (e.g., adventure, culture, family)"
-                    className="bg-parchment border-gold/30"
+                    className="bg-parchment border-gold/30 text-sm sm:text-base flex-1"
                     value={currentTag}
                     onChange={(e) => setCurrentTag(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
@@ -407,19 +407,20 @@ export default function NewTripPage() {
                   <Button 
                     variant="outline" 
                     onClick={handleAddTag}
-                    className="border-gold/30 bg-transparent"
+                    className="border-gold/30 bg-transparent text-sm sm:text-base w-full sm:w-auto"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="ml-2">Add Tag</span>
                   </Button>
                 </div>
                 
                 {formData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {formData.tags.map((tag, index) => (
                       <Badge 
                         key={index} 
                         variant="secondary" 
-                        className="bg-gold/10 text-deepbrown border border-gold/30"
+                        className="bg-gold/10 text-deepbrown border border-gold/30 text-xs sm:text-sm py-1 px-2"
                       >
                         {tag}
                         <button
@@ -437,16 +438,16 @@ export default function NewTripPage() {
 
             <Card className="border-gold/20 bg-parchment-light">
               <CardHeader>
-                <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
-                  <Users className="h-5 w-5" />
+                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                   Travel Companions
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     placeholder="Add a travel companion name"
-                    className="bg-parchment border-gold/30"
+                    className="bg-parchment border-gold/30 text-sm sm:text-base flex-1"
                     value={currentCompanion}
                     onChange={(e) => setCurrentCompanion(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleAddCompanion()}
@@ -454,19 +455,20 @@ export default function NewTripPage() {
                   <Button 
                     variant="outline" 
                     onClick={handleAddCompanion}
-                    className="border-gold/30 bg-transparent"
+                    className="border-gold/30 bg-transparent text-sm sm:text-base w-full sm:w-auto"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="ml-2">Add Companion</span>
                   </Button>
                 </div>
                 
                 {formData.companions.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {formData.companions.map((companion, index) => (
                       <Badge 
                         key={index} 
                         variant="secondary" 
-                        className="bg-blue/10 text-deepbrown border border-blue/30"
+                        className="bg-blue/10 text-deepbrown border border-blue/30 text-xs sm:text-sm py-1 px-2"
                       >
                         <User className="h-3 w-3 mr-1" />
                         {companion}

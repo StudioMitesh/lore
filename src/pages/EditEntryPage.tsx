@@ -260,8 +260,8 @@ export default function EditEntryPage() {
         lat: entryData.coordinates.lat,
         lng: entryData.coordinates.lng,
         type: "visited" as const,
-        tripId: entryData.tripId || undefined,
-        dayLogId: entryData.dayLogId || undefined,
+        tripId: entryData.tripId || null,
+        dayLogId: entryData.dayLogId || null,
         entryId: entryId,
         isCustom: false,
         updatedAt: new Date().toISOString()
@@ -577,18 +577,6 @@ export default function EditEntryPage() {
                         <div className="flex items-center gap-2">
                           <Camera className="h-4 w-4" />
                           Photo Collection
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="map">
-                        <div className="flex items-center gap-2">
-                          <Map className="h-4 w-4" />
-                          Map & Routes
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="artifact">
-                        <div className="flex items-center gap-2">
-                          <Archive className="h-4 w-4" />
-                          Cultural Artifact
                         </div>
                       </SelectItem>
                     </SelectContent>

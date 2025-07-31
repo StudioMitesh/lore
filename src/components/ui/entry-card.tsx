@@ -20,7 +20,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -193,7 +192,7 @@ export function EntryCard({
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-48 bg-parchment">
                     {!isDraft && (
                       <DropdownMenuItem onClick={handleView}>
                         <Eye className="mr-2 h-4 w-4" />
@@ -204,7 +203,6 @@ export function EntryCard({
                       <Edit3 className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={handleDeleteClick}
                       className="text-red-600 focus:text-red-600"

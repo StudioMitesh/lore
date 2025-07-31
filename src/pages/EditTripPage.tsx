@@ -322,24 +322,24 @@ export default function EditTripPage() {
     <div className="min-h-screen flex flex-col parchment-texture">
       <Navbar />
       
-      <main className="flex-1 pt-24 pb-16">
-        <div className="container max-w-4xl mx-auto px-4">
+      <main className="flex-1 pt-20 sm:pt-24 pb-12 sm:pb-16">
+        <div className="container max-w-4xl mx-auto px-4 sm:px-6">
           <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-4">
+            <div className="flex items-start sm:items-center gap-3 sm:gap-4">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => navigate(-1)}
-                className="border-gold/30 bg-transparent"
+                className="border-gold/30 bg-transparent mt-1 sm:mt-0"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div>
-                <h1 className="font-display text-3xl font-bold text-deepbrown">Edit Trip</h1>
-                <p className="text-deepbrown/70 mt-1">Update your adventure details</p>
+                <h1 className="font-display text-2xl sm:text-3xl font-bold text-deepbrown">Edit Trip</h1>
+                <p className="text-sm sm:text-base text-deepbrown/70 mt-1">Update your adventure details</p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-0">
               <Button 
                 variant="outline" 
                 className="border-red-300 bg-transparent text-red-600 hover:bg-red-50"
@@ -382,13 +382,13 @@ export default function EditTripPage() {
 
           <div className="space-y-8">
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader>
-                <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
-                  <Plane className="h-5 w-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
+                  <Plane className="h-4 sm:h-5 w-4 sm:w-5" />
                   Trip Details
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 sm:space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="name">Trip Name *</Label>
                   <Input
@@ -405,13 +405,13 @@ export default function EditTripPage() {
                   <Textarea
                     id="description"
                     placeholder="Describe your trip plans, goals, or what makes this adventure special..."
-                    className="min-h-[100px] bg-parchment border-gold/30 resize-none"
+                    className="min-h-[100px] bg-parchment border-gold/30 resize-none text-sm sm:text-base"
                     value={formData.description}
                     onChange={(e) => handleInputChange('description', e.target.value)}
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="startDate">Start Date *</Label>
                     <div className="relative">
@@ -483,8 +483,8 @@ export default function EditTripPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-xl text-deepbrown">Cover Photo</CardTitle>
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                <CardTitle className="text-lg sm:text-xl text-deepbrown">Cover Photo</CardTitle>
                 <div>
                   <input
                     type="file"
@@ -544,9 +544,9 @@ export default function EditTripPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader>
-                <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
-                  <Tag className="h-5 w-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
+                  <Tag className="h-4 sm:h-5 w-4 sm:w-5" />
                   Tags
                 </CardTitle>
               </CardHeader>
@@ -591,9 +591,9 @@ export default function EditTripPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader>
-                <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
-                  <Users className="h-5 w-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
+                  <Users className="h-4 sm:h-5 w-4 sm:w-5" />
                   Travel Companions
                 </CardTitle>
               </CardHeader>

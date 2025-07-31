@@ -411,10 +411,9 @@ export default function ProfilePage() {
               {/* High-level Stats */}
               <div className="bg-parchment-light rounded-2xl border border-gold/20 p-5">
                 <h3 className="font-display text-lg font-medium text-deepbrown mb-4">Travel Overview</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <StatCard label="Total Trips" value={profile.stats.totalTrips || 0} />
                   <StatCard label="Countries" value={profile.stats.countries} />
-                  <StatCard label="Continents" value={profile.stats.continents} />
                   <StatCard label="Active Days" value={profile.stats.activeDays || 0} />
                 </div>
               </div>
@@ -427,7 +426,7 @@ export default function ProfilePage() {
                       <Settings className="mr-2 h-4 w-4" /> Edit Profile
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-3xl parchment border border-gold/20 max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="max-w-3xl bg-parchment border border-gold/20 max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="font-display text-deepbrown">Edit Your Profile</DialogTitle>
                       <DialogDescription className="text-foreground">
@@ -844,7 +843,7 @@ export default function ProfilePage() {
                     )}
 
                     {/* Quick Stats Grid */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-3 md:grid-cols-3 gap-4">
                       <div className="text-center p-4 bg-parchment rounded-lg">
                         <div className="text-2xl font-bold text-gold">{profile.stats.totalTrips}</div>
                         <div className="text-sm text-deepbrown/70">Total Trips</div>
@@ -852,10 +851,6 @@ export default function ProfilePage() {
                       <div className="text-center p-4 bg-parchment rounded-lg">
                         <div className="text-2xl font-bold text-gold">{profile.stats.countries}</div>
                         <div className="text-sm text-deepbrown/70">Countries</div>
-                      </div>
-                      <div className="text-center p-4 bg-parchment rounded-lg">
-                        <div className="text-2xl font-bold text-gold">{profile.stats.continents}</div>
-                        <div className="text-sm text-deepbrown/70">Continents</div>
                       </div>
                       <div className="text-center p-4 bg-parchment rounded-lg">
                         <div className="text-2xl font-bold text-gold">{profile.stats.totalPhotos}</div>

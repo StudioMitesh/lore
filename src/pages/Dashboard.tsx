@@ -216,94 +216,94 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex flex-col parchment-texture">
       <Navbar />
-      <main className="flex-1 pt-24 pb-16">
+      <main className="flex-1 pt-16 sm:pt-20 lg:pt-24 pb-8 sm:pb-12 lg:pb-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-            <div>
-              <h1 className="font-display text-3xl font-bold text-deepbrown">Your Adventures</h1>
-              <p className="text-deepbrown/70">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 sm:mb-8">
+            <div className="w-full md:w-auto">
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-deepbrown">Your Adventures</h1>
+              <p className="text-sm sm:text-base text-deepbrown/70">
                 {stats.totalEntries > 0 
                   ? `${stats.totalEntries} entries across ${stats.totalTrips} trips in ${stats.countriesVisited} countries`
                   : "Start documenting your travel memories"
                 }
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3 w-full md:w-auto justify-start md:justify-end">
               <AnimatedButton 
                 animationType="glow" 
-                className="shrink-0"
+                className="shrink-0 text-sm sm:text-base"
                 onClick={() => navigate('/new-trip')}
               >
-                <Plane className="mr-2 h-4 w-4" />
+                <Plane className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 New Trip
               </AnimatedButton>
               <AnimatedButton 
                 animationType="glow" 
-                className="shrink-0"
+                className="shrink-0 text-sm sm:text-base"
                 onClick={() => navigate('/entry/new')}
               >
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 New Entry
               </AnimatedButton>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-8">
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row gap-4 w-full">
-                <div className="relative flex-1 w-full sm:w-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 sm:gap-6 lg:gap-8">
+            <div className="space-y-4 sm:space-y-6">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full">
+                <div className="relative flex-1 w-full">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
                   <Input 
                     placeholder="Search entries and trips..." 
-                    className="pl-9 bg-parchment-light border-gold/30"
+                    className="pl-9 bg-parchment-light border-gold/30 text-sm sm:text-base"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 sm:gap-2 justify-end sm:justify-start">
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    className="border-gold/30 bg-transparent"
+                    className="border-gold/30 bg-transparent h-9 w-9 sm:h-10 sm:w-10"
                     onClick={handleSearch}
                   >
-                    <Search className="h-4 w-4" />
+                    <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     <span className="sr-only">Search</span>
                   </Button>
-                  <Button variant="outline" size="icon" className="border-gold/30 bg-transparent">
-                    <Calendar className="h-4 w-4" />
+                  <Button variant="outline" size="icon" className="border-gold/30 bg-transparent h-9 w-9 sm:h-10 sm:w-10">
+                    <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     <span className="sr-only">Filter by date</span>
                   </Button>
-                  <Button variant="outline" size="icon" className="border-gold/30 bg-transparent">
-                    <MapPin className="h-4 w-4" />
+                  <Button variant="outline" size="icon" className="border-gold/30 bg-transparent h-9 w-9 sm:h-10 sm:w-10">
+                    <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     <span className="sr-only">Filter by location</span>
                   </Button>
-                  <Button variant="outline" size="icon" className="border-gold/30 bg-transparent">
-                    <Filter className="h-4 w-4" />
+                  <Button variant="outline" size="icon" className="border-gold/30 bg-transparent h-9 w-9 sm:h-10 sm:w-10">
+                    <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     <span className="sr-only">More filters</span>
                   </Button>
                 </div>
               </div>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="bg-parchment-dark border border-gold/20 w-full sm:w-auto flex">
-                  <TabsTrigger value="overview">
+                <TabsList className="bg-parchment-dark border border-gold/20 w-full overflow-x-auto flex-nowrap scrollbar-none">
+                  <TabsTrigger value="overview" className="text-sm sm:text-base whitespace-nowrap">
                     Overview
                   </TabsTrigger>
-                  <TabsTrigger value="trips">
+                  <TabsTrigger value="trips" className="text-sm sm:text-base whitespace-nowrap">
                     Trips ({trips.length})
                   </TabsTrigger>
-                  <TabsTrigger value="entries">
+                  <TabsTrigger value="entries" className="text-sm sm:text-base whitespace-nowrap">
                     All Entries ({entries.length})
                   </TabsTrigger>
-                  <TabsTrigger value="standalone">
+                  <TabsTrigger value="standalone" className="text-sm sm:text-base whitespace-nowrap">
                     Solo Entries ({standaloneEntries.length})
                   </TabsTrigger>
-                  <TabsTrigger value="favorites">
+                  <TabsTrigger value="favorites" className="text-sm sm:text-base whitespace-nowrap">
                     Favorites ({favoriteEntries.length})
                   </TabsTrigger>
-                  <TabsTrigger value="drafts">
+                  <TabsTrigger value="drafts" className="text-sm sm:text-base whitespace-nowrap">
                     Drafts ({draftEntries.length})
                   </TabsTrigger>
                 </TabsList>

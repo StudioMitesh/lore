@@ -1,8 +1,8 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { X, MapPin, Calendar, Tag, Camera, BookOpen, Map, Archive, Heart, Route, Clock, Globe } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import { MapPin, Calendar, Tag, Camera, BookOpen, Map, Archive, Heart, Route, Clock, Globe } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -82,11 +82,6 @@ export function LocationModal({
                 </div>
               </div>
             </div>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
           </div>
         </DialogHeader>
 

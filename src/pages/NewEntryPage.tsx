@@ -394,8 +394,8 @@ export default function NewEntryPage() {
         lat: entryData.coordinates.lat,
         lng: entryData.coordinates.lng,
         type: "visited" as const,
-        tripId: tripId || undefined,
-        dayLogId: dayLogId || undefined,
+        tripId: tripId || null,
+        dayLogId: dayLogId || null,
         entryId: entryId,
         isCustom: false,
         createdAt: new Date().toISOString()
@@ -482,8 +482,8 @@ export default function NewEntryPage() {
 
       const entryData: Omit<Entry, 'id'> = {
         uid: user.uid,
-        tripId: selectedTrip?.id || undefined,
-        dayLogId: dayLogId || undefined,
+        tripId: selectedTrip?.id || null,
+        dayLogId: dayLogId || null,
         title: formData.title,
         content: formData.content,
         timestamp: formData.timestamp,
@@ -496,7 +496,7 @@ export default function NewEntryPage() {
         createdAt: new Date().toISOString(),
         isDraft,
         isFavorite: false,
-        isStandalone: !tripId && !dayLogId,
+        isStandalone: !tripId,
         placeId: formData.placeId
       }
   
@@ -524,8 +524,8 @@ export default function NewEntryPage() {
           country: formData.country,
           type: formData.type,
           createdAt: new Date().toISOString(),
-          tripId: tripId || undefined,
-          dayLogId: dayLogId || undefined
+          tripId: tripId || null,
+          dayLogId: dayLogId || null
         })
       }
       
@@ -582,9 +582,9 @@ export default function NewEntryPage() {
 
   const TripAssociationSection = () => (
     <Card className="border-gold/20 bg-parchment-light">
-      <CardHeader>
-        <CardTitle className="text-lg text-deepbrown flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-deepbrown/50" />
+      <CardHeader className="pb-4 sm:pb-6">
+        <CardTitle className="text-base sm:text-lg text-deepbrown flex items-center gap-2">
+          <MapPin className="h-4 sm:h-5 w-4 sm:w-5 text-deepbrown/50" />
           Trip Association (Optional)
         </CardTitle>
       </CardHeader>
@@ -654,14 +654,14 @@ export default function NewEntryPage() {
     <div className="min-h-screen flex flex-col parchment-texture">
       <Navbar />
       
-      <main className="flex-1 pt-24 pb-16">
-        <div className="container max-w-4xl mx-auto px-4">
+      <main className="flex-1 pt-20 sm:pt-24 pb-12 sm:pb-16">
+        <div className="container max-w-4xl mx-auto px-4 sm:px-6">
           <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="font-display text-3xl font-bold text-deepbrown">Create New Entry</h1>
-              <p className="text-deepbrown/70 mt-1">Document your adventures and preserve your memories</p>
+            <div className="mb-4 sm:mb-0">
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-deepbrown">Create New Entry</h1>
+              <p className="text-sm sm:text-base text-deepbrown/70 mt-1">Document your adventures and preserve your memories</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <Button 
                 variant="outline" 
                 className="border-gold/30 bg-transparent"
@@ -695,13 +695,13 @@ export default function NewEntryPage() {
 
           <div className="space-y-8">
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader>
-                <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
                   {getTypeIcon(formData.type)}
                   Entry Details
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 sm:space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="type">Entry Type</Label>
                   <Select 
@@ -724,18 +724,6 @@ export default function NewEntryPage() {
                           Photo Collection
                         </div>
                       </SelectItem>
-                      <SelectItem value="map">
-                        <div className="flex items-center gap-2">
-                          <Map className="h-4 w-4" />
-                          Map & Routes
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="artifact">
-                        <div className="flex items-center gap-2">
-                          <Archive className="h-4 w-4" />
-                          Cultural Artifact
-                        </div>
-                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -751,11 +739,10 @@ export default function NewEntryPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="location-search">Location * (Search or click on map)</Label>
-                  <div 
-                    className="relative search-input-container"
+                  <div className="relative search-input-container w-full"
                     onClick={handleSearchContainerClick}
                   >
                     <Popover open={showSearchResults} onOpenChange={setShowSearchResults}>
@@ -787,7 +774,7 @@ export default function NewEntryPage() {
                         </div>
                       </PopoverTrigger>
                       <PopoverContent 
-                        className="p-0 w-full bg-white/98 backdrop-blur-sm shadow-2xl border-2 border-gray-200 rounded-xl mt-1" 
+                        className="p-0 w-full max-w-[calc(100vw-2rem)] sm:max-w-none bg-white/98 backdrop-blur-sm shadow-2xl border-2 border-gray-200 rounded-xl mt-1" 
                         align="start"
                         onPointerDownOutside={(e) => {
                           if (!(e.target as HTMLElement).closest('.search-input-container')) {
@@ -799,14 +786,14 @@ export default function NewEntryPage() {
                       >
                         <div className="max-h-80 overflow-y-auto">
                           {searchResults.length === 0 && searchValue && !isSearching ? (
-                            <div className="p-4 text-center text-gray-500">
+                            <div className="p-3 sm:p-4 text-center text-sm sm:text-base text-gray-500">
                               No results found for "{searchValue}"
                             </div>
                           ) : (
                             searchResults.map((result, index) => (
                               <div
                                 key={`${result.placeId}-${index}`}
-                                className="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                                className="p-3 sm:p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => {
                                   handleSearchResultSelect(result);
@@ -916,7 +903,7 @@ export default function NewEntryPage() {
               <CardContent>
                 <Textarea
                   placeholder="Tell your adventure story... What did you see? How did you feel? What made this experience special?"
-                  className="min-h-[200px] bg-parchment border-gold/30 resize-none"
+                  className="min-h-[150px] sm:min-h-[200px] bg-parchment border-gold/30 resize-none text-sm sm:text-base"
                   value={formData.content}
                   onChange={(e) => handleInputChange('content', e.target.value)}
                 />
@@ -928,9 +915,9 @@ export default function NewEntryPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader>
-                <CardTitle className="text-xl text-deepbrown flex items-center gap-2">
-                  <Tag className="h-5 w-5" />
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl text-deepbrown flex items-center gap-2">
+                  <Tag className="h-4 sm:h-5 w-4 sm:w-5" />
                   Tags
                 </CardTitle>
               </CardHeader>
@@ -975,8 +962,8 @@ export default function NewEntryPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-xl text-deepbrown">Photos</CardTitle>
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                <CardTitle className="text-lg sm:text-xl text-deepbrown">Photos</CardTitle>
                 <div>
                   <input
                     type="file"
@@ -1005,7 +992,7 @@ export default function NewEntryPage() {
                   enableLightbox={true}
                 />
                 {imagePreviewUrls.length > 0 && (
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
                     {images.map((file, index) => (
                       <div key={index} className="flex items-center justify-between p-2 bg-parchment rounded border border-gold/20">
                         <span className="text-sm text-deepbrown truncate">{file.name}</span>
@@ -1025,15 +1012,15 @@ export default function NewEntryPage() {
             </Card>
 
             <Card className="border-gold/20 bg-parchment-light">
-              <CardHeader>
-                <CardTitle className="text-xl text-deepbrown">Map Location *</CardTitle>
-                <p className="text-sm text-deepbrown/70">
+              <CardHeader className="pb-4 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl text-deepbrown">Map Location *</CardTitle>
+                <p className="text-xs sm:text-sm text-deepbrown/70 mt-1 sm:mt-2">
                   Search above or click on the map to set the exact location of your adventure. 
                   Selected locations will appear as markers.
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="h-[400px] rounded-lg overflow-hidden">
+                <div className="h-[300px] sm:h-[400px] rounded-lg overflow-hidden">
                   <MapViewer
                     locations={locationSelected ? [{
                       id: 'current-entry-location',
@@ -1053,8 +1040,8 @@ export default function NewEntryPage() {
                   />
                 </div>
                 {locationSelected && (
-                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-start gap-3">
+                  <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-start gap-2 sm:gap-3">
                       <MapPin className="h-5 w-5 text-green-600 mt-0.5" />
                       <div>
                         <p className="text-sm font-medium text-green-800">
@@ -1073,7 +1060,7 @@ export default function NewEntryPage() {
               </CardContent>
             </Card>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gold/20">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-6 border-t border-gold/20">
               <Button 
                 variant="outline" 
                 className="border-gold/30 bg-transparent"
