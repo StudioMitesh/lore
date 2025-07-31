@@ -1036,18 +1036,20 @@ export default function NewEntryPage() {
                 <div className="h-[400px] rounded-lg overflow-hidden">
                   <MapViewer
                     locations={locationSelected ? [{
-                      id: 'current',
+                      id: 'current-entry-location',
                       name: formData.location || 'Selected Location',
                       lat: formData.coordinates.lat,
                       lng: formData.coordinates.lng,
                       type: 'visited',
-                      uid: user?.uid || ""
+                      isCustom: false,
+                      uid: user?.uid || "",
                     }] : []}
                     onLocationSelect={handleLocationSelect}
                     interactive={true}
                     center={locationSelected ? formData.coordinates : undefined}
                     zoom={locationSelected ? 12 : 2}
                     showSearch={false}
+                    enableClustering={false}
                   />
                 </div>
                 {locationSelected && (

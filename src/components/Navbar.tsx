@@ -51,12 +51,12 @@ export function Navbar() {
         isScrolled ? "bg-parchment/95 backdrop-blur-sm shadow-md py-2" : "bg-transparent py-4",
     )}
     >
-    <div className="container mx-auto flex flex-row items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link to={"/"} className="flex items-center gap-2 transition-colors hover:text-gold">
+    <div className="container mx-auto flex flex-row items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <Link to={"/"} className="flex items-center gap-2 transition-colors hover:text-gold min-w-[60px]">
         <span className="font-display text-xl font-medium text-deepbrown">Lore</span>
         </Link>
 
-        <nav className="hidden md:flex flex-row items-center gap-8">
+        <nav className="hidden md:flex flex-row items-center gap-4 lg:gap-8 flex-wrap">
         {navItems.map((item) => {
             const isActive = pathname === item.href
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight, ChevronLeft, Grid, MapPin, Plus, Loader2, Route, Search } from "lucide-react";
 import { collection, query, where, onSnapshot, doc, addDoc, deleteDoc, getDocs, orderBy } from "firebase/firestore";
@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { db } from "@/api/firebase";
 import { useAuth } from '@/context/useAuth';
 import { type Entry, type MapLocationWithDetails, type Trip, type TripWithDetails, type TripRoute } from "@/lib/types";
-import { getPlaceDetails } from "@/services/geocoding";
+import { getAutocompleteSuggestions, getPlaceDetails, getPlaceDetailsFromPlaceId } from "@/services/geocoding";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface MapStats {
   totalCountries: number;
@@ -44,6 +45,9 @@ export default function MapPage() {
 
   // Custom location state
   const [locationSearchQuery, setLocationSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ description: string; placeId: string }[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [isAddingLocation, setIsAddingLocation] = useState(false);
 
   // Location modal state
@@ -66,6 +70,88 @@ export default function MapPage() {
     toast.info("AR mode coming soon!", {
       description: "This feature is currently in development and will be available in a future update.",
     });
+  };
+
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+  
+    setIsSearching(true);
+    
+    try {
+      const results = await getAutocompleteSuggestions(query);
+      setSearchResults(results);
+      setShowSearchResults(results.length > 0);
+    } catch (error) {
+      console.error("Search failed:", error);
+      setSearchResults([]);
+      setShowSearchResults(false);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Handle search input with debouncing
+  const handleSearchInput = (value: string) => {
+    setLocationSearchQuery(value);
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+  
+    // Set new timeout for debounced search
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(value);
+    }, 300);
+  };
+
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle search result selection
+  const handleSearchResultSelect = async (result: { description: string; placeId: string }) => {
+    try {
+      const placeDetails = await getPlaceDetailsFromPlaceId(result.placeId);
+      
+      if (!placeDetails.coordinates) {
+        throw new Error('No coordinates found for this place');
+      }
+      
+      const { lat, lng } = placeDetails.coordinates;
+      
+      setNewLocation(prev => ({
+        ...prev,
+        coordinates: { lat, lng },
+        name: prev.name || placeDetails.name || `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      }));
+      
+      setLocationSearchQuery(placeDetails.name);
+      setShowSearchResults(false);
+    } catch (error) {
+      console.error("Failed to navigate to search result:", error);
+      toast.error("Failed to get location details");
+    }
+  };
+
+  const handleLocationSelect = async (location: { lat: number; lng: number; address?: string }) => {
+    try {
+      const placeDetails = await getPlaceDetails(location.lat, location.lng);
+      setNewLocation(prev => ({
+        ...prev,
+        coordinates: { lat: location.lat, lng: location.lng },
+        name: prev.name || placeDetails.name || `Location ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+      }));
+    } catch (error) {
+      console.error("Geocoding failed:", error);
+      setNewLocation(prev => ({
+        ...prev,
+        coordinates: { lat: location.lat, lng: location.lng },
+        name: prev.name || `Location ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+      }));
+    }
   };
 
   useEffect(() => {
@@ -223,24 +309,6 @@ export default function MapPage() {
       totalEntries: allLocations.length,
       favoriteDestination
     });
-  };
-
-  const handleLocationSelect = async (location: { lat: number; lng: number; address?: string }) => {
-    try {
-      const placeDetails = await getPlaceDetails(location.lat, location.lng);
-      setNewLocation(prev => ({
-        ...prev,
-        coordinates: { lat: location.lat, lng: location.lng },
-        name: prev.name || placeDetails.name || `Location ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
-      }));
-    } catch (error) {
-      console.error("Geocoding failed:", error);
-      setNewLocation(prev => ({
-        ...prev,
-        coordinates: { lat: location.lat, lng: location.lng },
-        name: prev.name || `Location ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
-      }));
-    }
   };
 
   const handleLocationClick = (location: MapLocationWithDetails) => {
@@ -455,7 +523,7 @@ export default function MapPage() {
                       <Plus className="h-4 w-4" />
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-[90vw] w-full max-h-[90vh] bg-parchment border border-gold/20 shadow-2xl overflow-y-auto">
+                  <DialogContent className="max-w-[100vw] w-full max-h-[90vh] bg-parchment border border-gold/20 shadow-2xl overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="font-display text-xl text-deepbrown">Add Custom Location</DialogTitle>
                       <p className="text-sm text-deepbrown/70 mt-1">
@@ -583,16 +651,61 @@ export default function MapPage() {
                             Search & Set Location
                           </Label>
                           <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
-                            <Input
-                              placeholder="Search for a place or click on the map"
-                              className="pl-9 bg-parchment border-gold/30 focus:border-gold/50"
-                              value={locationSearchQuery}
-                              onChange={(e) => setLocationSearchQuery(e.target.value)}
-                            />
-                            {
-                              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gold" />
-                            }
+                            <Popover open={showSearchResults} onOpenChange={setShowSearchResults}>
+                              <PopoverTrigger asChild>
+                                <div>
+                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+                                  <Input
+                                    placeholder="Search for a place or click on the map"
+                                    className="pl-9 bg-parchment border-gold/30 focus:border-gold/50"
+                                    value={locationSearchQuery}
+                                    onChange={(e) => {
+                                      handleSearchInput(e.target.value);
+                                      if (e.target.value) {
+                                        setShowSearchResults(true);
+                                      }
+                                    }}
+                                    onFocus={() => {
+                                      if (locationSearchQuery && searchResults.length > 0) {
+                                        setShowSearchResults(true);
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      setTimeout(() => setShowSearchResults(false), 200);
+                                    }}
+                                  />
+                                  {isSearching && (
+                                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gold" />
+                                  )}
+                                </div>
+                              </PopoverTrigger>
+                              <PopoverContent 
+                                className="w-full p-0 bg-parchment border border-gold/20 rounded-lg mt-1" 
+                                align="start"
+                                onOpenAutoFocus={(e: { preventDefault: () => void; }) => e.preventDefault()}
+                              >
+                                <div className="max-h-60 overflow-y-auto">
+                                  {searchResults.length === 0 && locationSearchQuery && !isSearching ? (
+                                    <div className="p-2 text-center text-deepbrown/70">
+                                      No results found for "{locationSearchQuery}"
+                                    </div>
+                                  ) : (
+                                    searchResults.map((result, index) => (
+                                      <div
+                                        key={`${result.placeId}-${index}`}
+                                        className="p-3 hover:bg-parchment-dark cursor-pointer border-b border-gold/20 last:border-b-0 transition-colors"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => handleSearchResultSelect(result)}
+                                      >
+                                        <div className="text-sm font-medium text-deepbrown">
+                                          {result.description}
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         </div>
                       </div>
@@ -622,7 +735,7 @@ export default function MapPage() {
                             interactive={true}
                             center={newLocation.coordinates.lat ? newLocation.coordinates : { lat: 20, lng: 0 }}
                             zoom={newLocation.coordinates.lat ? 10 : 2}
-                            showSearch={true}
+                            showSearch={false}
                             showControls={true}
                           />
                         </div>

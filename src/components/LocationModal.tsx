@@ -60,7 +60,9 @@ export function LocationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="parchment border border-gold/20 max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="bg-parchment shadow-xl rounded-2xl border border-gold/30 w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6"
+      >
         <DialogHeader className="space-y-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -95,7 +97,7 @@ export function LocationModal({
               <Globe className="h-4 w-4" />
               Location Details
             </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-deepbrown/60">Coordinates:</span>
                 <p className="text-deepbrown font-mono">

@@ -383,8 +383,8 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen flex flex-col parchment-texture">
       <Navbar />
-      <main className="flex-1 pt-24 pb-16">
-        <div className="container">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 lg:px-8">
+        <div className="container mx-auto">
 
           {profile.coverPhotoUrl && (
             <div className="relative h-64 rounded-2xl overflow-hidden mb-8">
@@ -397,7 +397,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 md:gap-8">
             {/* Left Sidebar - Profile Info */}
             <div className="space-y-6">
               <ProfileCard
