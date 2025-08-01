@@ -1,347 +1,347 @@
 export interface UserProfile {
-    uid: string;
-    first_name: string;
-    last_name: string;
-    username: string;
-    email: string;
-    avatarUrl?: string;
-    coverPhotoUrl?: string;
-    bio: string;
-    location?: string;
-    website?: string;
-    socialLinks?: {
-        twitter?: string;
-        instagram?: string;
-        linkedin?: string;
-        github?: string;
-    };
-    interests?: string[];
-    languagesSpoken?: string[];
-    favoritePlaces?: string[];
-    stats: {
-        entries: number;
-        countries: number;
-        continents: number;
-        badges: number;
-        totalPhotos?: number;
-        totalTrips?: number;
-        activeDays?: number;
-    };
-    badges: Badge[];
-    createdAt: string;
-    updatedAt?: string;
-    favorites: string[]; // Entry IDs
+  uid: string;
+  first_name: string;
+  last_name: string;
+  username: string;
+  email: string;
+  avatarUrl?: string;
+  coverPhotoUrl?: string;
+  bio: string;
+  location?: string;
+  website?: string;
+  socialLinks?: {
+    twitter?: string;
+    instagram?: string;
+    linkedin?: string;
+    github?: string;
+  };
+  interests?: string[];
+  languagesSpoken?: string[];
+  favoritePlaces?: string[];
+  stats: {
+    entries: number;
+    countries: number;
+    continents: number;
+    badges: number;
+    totalPhotos?: number;
+    totalTrips?: number;
+    activeDays?: number;
+  };
+  badges: Badge[];
+  createdAt: string;
+  updatedAt?: string;
+  favorites: string[]; // Entry IDs
 }
 
 export interface Entry {
-    id: string;
-    tripId?: string | null;
-    dayLogId?: string | null;
-    uid: string;
-    title: string;
-    content: string;
-    timestamp: string;
-    location: string;
-    country: string;
-    coordinates: {
-        lat: number;
-        lng: number;
-    };
-    mediaUrls: string[];
-    tags?: string[];
-    type: 'journal' | 'photo' | 'map' | 'artifact' | 'event';
-    createdAt: string;
-    updatedAt?: string;
-    isDraft?: boolean;
-    isFavorite?: boolean;
-    isStandalone?: boolean;
-    placeId?: string;
+  id: string;
+  tripId?: string | null;
+  dayLogId?: string | null;
+  uid: string;
+  title: string;
+  content: string;
+  timestamp: string;
+  location: string;
+  country: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  mediaUrls: string[];
+  tags?: string[];
+  type: 'journal' | 'photo' | 'map' | 'artifact' | 'event';
+  createdAt: string;
+  updatedAt?: string;
+  isDraft?: boolean;
+  isFavorite?: boolean;
+  isStandalone?: boolean;
+  placeId?: string;
 }
 
 export interface Trip {
-    id: string;
-    uid: string;
-    name: string;
-    description?: string;
-    startDate: string;
-    endDate?: string;
-    coverImageUrl?: string;
-    status: 'draft' | 'planned' | 'active' | 'completed';
-    dayLogIDs: string[];
-    entryIDs: string[];
-    totalEntries: number;
-    createdAt: string;
-    updatedAt?: string;
-    isFavorite?: boolean;
-    countriesVisited: string[];
-    companions: string[];
-    tags?: string[];
+  id: string;
+  uid: string;
+  name: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  coverImageUrl?: string;
+  status: 'draft' | 'planned' | 'active' | 'completed';
+  dayLogIDs: string[];
+  entryIDs: string[];
+  totalEntries: number;
+  createdAt: string;
+  updatedAt?: string;
+  isFavorite?: boolean;
+  countriesVisited: string[];
+  companions: string[];
+  tags?: string[];
 }
 
 export interface DayLog {
-    id: string;
-    tripId: string;
-    uid: string;
-    date: string;
-    location: string;
-    country: string;
-    coordinates: { lat: number; lng: number };
-    description?: string;
-    entryIds: string[];
-    totalEntries: number;
-    createdAt: string;
-    updatedAt?: string;
+  id: string;
+  tripId: string;
+  uid: string;
+  date: string;
+  location: string;
+  country: string;
+  coordinates: { lat: number; lng: number };
+  description?: string;
+  entryIds: string[];
+  totalEntries: number;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface TimelineEvent {
-    id: string;
-    uid: string;
-    title: string;
-    timestamp: string;
-    location: string;
-    country: string;
-    type: 'journal' | 'photo' | 'map' | 'artifact' | 'event';
-    createdAt: string;
-    tripId?: string | null;
-    dayLogId?: string | null;
+  id: string;
+  uid: string;
+  title: string;
+  timestamp: string;
+  location: string;
+  country: string;
+  type: 'journal' | 'photo' | 'map' | 'artifact' | 'event';
+  createdAt: string;
+  tripId?: string | null;
+  dayLogId?: string | null;
 }
 
 export interface Badge {
-    id: string;
-    name: string;
-    description: string;
-    icon: string;
-    awardedAt: string;
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  awardedAt: string;
 }
 
 export interface Comment {
-    id: string;
-    entryId: string;
-    uid: string;
-    username: string;
-    avatarUrl?: string;
-    content: string;
-    createdAt: string;
+  id: string;
+  entryId: string;
+  uid: string;
+  username: string;
+  avatarUrl?: string;
+  content: string;
+  createdAt: string;
 }
 
 export interface Like {
-    id: string;
-    entryId: string;
-    uid: string;
-    createdAt: string;
+  id: string;
+  entryId: string;
+  uid: string;
+  createdAt: string;
 }
 
 export interface Notification {
-    id: string;
-    uid: string;
-    type: 'comment' | 'like' | 'follow' | 'badge' | 'system';
-    message: string;
-    link?: string;
-    read: boolean;
-    createdAt: string;
+  id: string;
+  uid: string;
+  type: 'comment' | 'like' | 'follow' | 'badge' | 'system';
+  message: string;
+  link?: string;
+  read: boolean;
+  createdAt: string;
 }
 
 export interface Follow {
-    followerId: string;
-    followingId: string;
-    createdAt: string;
+  followerId: string;
+  followingId: string;
+  createdAt: string;
 }
 
 export interface UserSettings {
-    uid: string;
-    theme: 'light' | 'dark' | 'auto';
-    emailNotifications: boolean;
-    pushNotifications: boolean;
-    language: string;
-    createdAt: string;
-    updatedAt?: string;
+  uid: string;
+  theme: 'light' | 'dark' | 'auto';
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  language: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface MapLocation {
-    id: string;
-    uid?: string;
-    name: string;
-    lat: number;
-    lng: number;
-    type: 'visited' | 'planned' | 'favorite';
-    tripId?: string;
-    trip?: Trip;
-    dayLogId?: string;
-    entryId?: string;
-    entry?: Entry;
-    isCustom?: boolean; // true if custom add, false if from entry/trip/daylog
+  id: string;
+  uid?: string;
+  name: string;
+  lat: number;
+  lng: number;
+  type: 'visited' | 'planned' | 'favorite';
+  tripId?: string;
+  trip?: Trip;
+  dayLogId?: string;
+  entryId?: string;
+  entry?: Entry;
+  isCustom?: boolean; // true if custom add, false if from entry/trip/daylog
 }
 
 export interface ExportedEntry {
-    id: string;
-    entryId: string;
-    uid: string;
-    format: 'pdf' | 'markdown' | 'html';
-    shared: boolean;
-    createdAt: string;
+  id: string;
+  entryId: string;
+  uid: string;
+  format: 'pdf' | 'markdown' | 'html';
+  shared: boolean;
+  createdAt: string;
 }
 
 export interface Feedback {
-    id: string;
-    uid?: string;
-    email?: string;
-    message: string;
-    rating?: number; // 1–5
-    createdAt: string;
+  id: string;
+  uid?: string;
+  email?: string;
+  message: string;
+  rating?: number; // 1–5
+  createdAt: string;
 }
 
 export interface SystemLog {
-    id: string;
-    level: 'info' | 'warn' | 'error';
-    message: string;
-    details?: string;
-    createdAt: string;
+  id: string;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  details?: string;
+  createdAt: string;
 }
 
 export interface UserStats {
-    totalEntries: number;
-    countriesVisited: number;
-    continents: number;
-    latestEntryDate: string | null;
-    totalPhotos: number;
-    totalTrips: number;
-    activeDays: number;
+  totalEntries: number;
+  countriesVisited: number;
+  continents: number;
+  latestEntryDate: string | null;
+  totalPhotos: number;
+  totalTrips: number;
+  activeDays: number;
 }
 
 export interface CreateTripData {
-    name: string;
-    description?: string;
-    startDate: string;
-    endDate?: string;
-    status?: 'draft' | 'planned' | 'active' | 'completed';
-    tags?: string[];
-    coverImageUrl?: string;
+  name: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  status?: 'draft' | 'planned' | 'active' | 'completed';
+  tags?: string[];
+  coverImageUrl?: string;
 }
 
 export interface CreateDayLogData {
-    tripId: string;
-    date: string;
-    location: string;
-    country: string;
-    coordinates: { lat: number; lng: number };
-    description?: string;
+  tripId: string;
+  date: string;
+  location: string;
+  country: string;
+  coordinates: { lat: number; lng: number };
+  description?: string;
 }
 
 export interface CreateEntryData {
-    title: string;
-    content: string;
-    timestamp: string;
-    location: string;
-    country: string;
-    coordinates: { lat: number; lng: number };
-    tags?: string[];
-    type: 'journal' | 'photo' | 'map' | 'artifact' | 'event';
-    isDraft?: boolean;
-    tripId?: string;
-    dayLogId?: string;
-    isStandalone?: boolean;
+  title: string;
+  content: string;
+  timestamp: string;
+  location: string;
+  country: string;
+  coordinates: { lat: number; lng: number };
+  tags?: string[];
+  type: 'journal' | 'photo' | 'map' | 'artifact' | 'event';
+  isDraft?: boolean;
+  tripId?: string;
+  dayLogId?: string;
+  isStandalone?: boolean;
 }
 
 export interface TripWithDetails extends Trip {
-    dayLogs: DayLog[];
-    recentEntries: Entry[];
-    locationCount: number;
+  dayLogs: DayLog[];
+  recentEntries: Entry[];
+  locationCount: number;
 }
 
 export interface DayLogWithEntries extends DayLog {
-    entries: Entry[];
+  entries: Entry[];
 }
 
 export interface MapLocationWithDetails {
-    id: string;
-    name: string;
-    lat: number;
-    lng: number;
-    type: 'visited' | 'planned' | 'favorite';
-    uid?: string;
-    trip?: Trip;
-    dayLog?: DayLog;
-    entry?: Entry;
-    tripId?: string;
-    isCustom?: boolean;
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  type: 'visited' | 'planned' | 'favorite';
+  uid?: string;
+  trip?: Trip;
+  dayLog?: DayLog;
+  entry?: Entry;
+  tripId?: string;
+  isCustom?: boolean;
 }
 
 export interface EntryWithTripInfo extends Entry {
-    tripName?: string;
-    dayLogDate?: string;
+  tripName?: string;
+  dayLogDate?: string;
 }
 
 export interface TripRoute {
-    tripId: string;
-    tripName: string;
-    locations: MapLocationWithDetails[];
-    route?: google.maps.DirectionsResult;
-    totalDistance?: number;
-    totalDuration?: number;
-    status: 'completed' | 'active' | 'planned' | 'draft';
+  tripId: string;
+  tripName: string;
+  locations: MapLocationWithDetails[];
+  route?: google.maps.DirectionsResult;
+  totalDistance?: number;
+  totalDuration?: number;
+  status: 'completed' | 'active' | 'planned' | 'draft';
 }
 
 export interface MapStats {
-    totalCountries: number;
-    totalCities: number;
-    totalDistance: number;
-    totalEntries: number;
-    favoriteDestination?: string;
+  totalCountries: number;
+  totalCities: number;
+  totalDistance: number;
+  totalEntries: number;
+  favoriteDestination?: string;
 }
 
 export interface PlaceDetails {
-    placeId: string;
-    name: string;
-    address: string;
-    city: string;
-    country: string;
-    coordinates: { lat: number; lng: number };
-    types: string[];
-    establishmentName?: string | null;
-    businessStatus?: string | null;
-    rating?: number | null;
-    photos?: string[];
+  placeId: string;
+  name: string;
+  address: string;
+  city: string;
+  country: string;
+  coordinates: { lat: number; lng: number };
+  types: string[];
+  establishmentName?: string | null;
+  businessStatus?: string | null;
+  rating?: number | null;
+  photos?: string[];
 }
 
 export interface AutocompletePrediction {
-    placeId: string;
-    description: string;
-    structuredFormatting: {
-        mainText: string;
-        secondaryText: string;
-    };
-    types: string[];
+  placeId: string;
+  description: string;
+  structuredFormatting: {
+    mainText: string;
+    secondaryText: string;
+  };
+  types: string[];
 }
 
 export interface AutocompletePredictionRaw {
-    fullText: string;
-    primaryText: string;
-    secondaryText?: string;
-    place?: {
-        id: string;
-    };
-    types?: string[];
+  fullText: string;
+  primaryText: string;
+  secondaryText?: string;
+  place?: {
+    id: string;
+  };
+  types?: string[];
 }
 
 export interface NearbySearchOptions {
-    lat: number;
-    lng: number;
-    radius?: number;
-    includedTypes?: string[];
-    fieldMask?: string[];
+  lat: number;
+  lng: number;
+  radius?: number;
+  includedTypes?: string[];
+  fieldMask?: string[];
 }
 
 export interface PlaceTextSearchOptions {
-    textQuery: string;
-    fieldMask?: string[];
+  textQuery: string;
+  fieldMask?: string[];
 }
 
 export interface AutocompleteOptions {
-    input: string;
-    locationBias?: { latitude: number; longitude: number; radiusMeters?: number };
+  input: string;
+  locationBias?: { latitude: number; longitude: number; radiusMeters?: number };
 }
 
 export interface AutocompleteResponse {
-    fullText: string;
-    predictions: AutocompletePredictionRaw[];
+  fullText: string;
+  predictions: AutocompletePredictionRaw[];
 }

@@ -4,12 +4,12 @@ import AppRoutes from './routes/AppRoutes';
 import { Toaster } from '@/components/ui/sonner';
 
 const App = () => {
-    return (
-        <Router>
-            <AppRoutes />
-            <Toaster />
-        </Router>
-    );
+  return (
+    <Router>
+      <AppRoutes />
+      <Toaster />
+    </Router>
+  );
 };
 
 export default App;

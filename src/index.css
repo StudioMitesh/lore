@@ -3,191 +3,191 @@
 @import 'tailwindcss';
 
 body {
-    font-family: 'DM Sans', Arial, Helvetica, sans-serif;
+  font-family: 'DM Sans', Arial, Helvetica, sans-serif;
 }
 
 @layer utilities {
-    .text-balance {
-        text-wrap: balance;
-    }
+  .text-balance {
+    text-wrap: balance;
+  }
 }
 
 @layer base {
-    :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-        --sidebar-background: 0 0% 98%;
-        --sidebar-foreground: 240 5.3% 26.1%;
-        --sidebar-primary: 240 5.9% 10%;
-        --sidebar-primary-foreground: 0 0% 98%;
-        --sidebar-accent: 240 4.8% 95.9%;
-        --sidebar-accent-foreground: 240 5.9% 10%;
-        --sidebar-border: 220 13% 91%;
-        --sidebar-ring: 217.2 91.2% 59.8%;
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
 
-        --gold: #d4af37;
-        --gold-dark: #b8941f;
-        --deepbrown: #3d2914;
-        --parchment: #f5f1e8;
-        --parchment-dark: #ede4d3;
-        --forest: #2d5016;
-    }
+    --gold: #d4af37;
+    --gold-dark: #b8941f;
+    --deepbrown: #3d2914;
+    --parchment: #f5f1e8;
+    --parchment-dark: #ede4d3;
+    --forest: #2d5016;
+  }
 
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
-        --sidebar-background: 240 5.9% 10%;
-        --sidebar-foreground: 240 4.8% 95.9%;
-        --sidebar-primary: 224.3 76.3% 48%;
-        --sidebar-primary-foreground: 0 0% 100%;
-        --sidebar-accent: 240 3.7% 15.9%;
-        --sidebar-accent-foreground: 240 4.8% 95.9%;
-        --sidebar-border: 240 3.7% 15.9%;
-        --sidebar-ring: 217.2 91.2% 59.8%;
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
 
-        --gold: #d4af37;
-        --gold-dark: #b8941f;
-        --deepbrown: #f5f1e8;
-        --parchment: #2d2d2d;
-        --parchment-dark: #1a1a1a;
-        --forest: #4a7c59;
-    }
+    --gold: #d4af37;
+    --gold-dark: #b8941f;
+    --deepbrown: #f5f1e8;
+    --parchment: #2d2d2d;
+    --parchment-dark: #1a1a1a;
+    --forest: #4a7c59;
+  }
 }
 
 @layer components {
-    .font-display {
-        font-family: 'Playfair Display', serif;
-    }
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
 
-    .text-deepbrown {
-        color: var(--deepbrown);
-    }
+  .text-deepbrown {
+    color: var(--deepbrown);
+  }
 
-    .text-gold {
-        color: var(--gold);
-    }
+  .text-gold {
+    color: var(--gold);
+  }
 
-    .bg-gold {
-        background-color: var(--gold);
-    }
+  .bg-gold {
+    background-color: var(--gold);
+  }
 
-    .bg-gold-dark {
-        background-color: var(--gold-dark);
-    }
+  .bg-gold-dark {
+    background-color: var(--gold-dark);
+  }
 
-    .bg-parchment {
-        background-color: var(--parchment);
-    }
+  .bg-parchment {
+    background-color: var(--parchment);
+  }
 
-    .bg-parchment-dark {
-        background-color: var(--parchment-dark);
-    }
+  .bg-parchment-dark {
+    background-color: var(--parchment-dark);
+  }
 
-    .bg-forest {
-        background-color: var(--forest);
-    }
+  .bg-forest {
+    background-color: var(--forest);
+  }
 
-    .border-gold {
-        border-color: var(--gold);
-    }
+  .border-gold {
+    border-color: var(--gold);
+  }
 
-    .border-gold-dark {
-        border-color: var(--gold-dark);
-    }
+  .border-gold-dark {
+    border-color: var(--gold-dark);
+  }
 
-    .text-deepbrown\/80 {
-        color: rgb(from var(--deepbrown) r g b / 0.8);
-    }
+  .text-deepbrown\/80 {
+    color: rgb(from var(--deepbrown) r g b / 0.8);
+  }
 
-    .border-gold\/20 {
-        border-color: rgb(from var(--gold) r g b / 0.2);
-    }
+  .border-gold\/20 {
+    border-color: rgb(from var(--gold) r g b / 0.2);
+  }
 
-    .border-gold\/30 {
-        border-color: rgb(from var(--gold) r g b / 0.3);
-    }
+  .border-gold\/30 {
+    border-color: rgb(from var(--gold) r g b / 0.3);
+  }
 
-    .bg-gold\/10 {
-        background-color: rgb(from var(--gold) r g b / 0.1);
-    }
+  .bg-gold\/10 {
+    background-color: rgb(from var(--gold) r g b / 0.1);
+  }
 
-    .text-white\/80 {
-        color: rgb(255 255 255 / 0.8);
-    }
+  .text-white\/80 {
+    color: rgb(255 255 255 / 0.8);
+  }
 
-    .parchment-texture {
-        position: relative;
-        isolation: isolate;
-        background-color: var(--parchment);
-        background-image:
-            radial-gradient(circle at 20% 50%, rgba(120, 119, 108, 0.15) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(120, 119, 108, 0.15) 0%, transparent 50%),
-            radial-gradient(circle at 40% 80%, rgba(120, 119, 108, 0.15) 0%, transparent 50%),
-            url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
-    }
+  .parchment-texture {
+    position: relative;
+    isolation: isolate;
+    background-color: var(--parchment);
+    background-image:
+      radial-gradient(circle at 20% 50%, rgba(120, 119, 108, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(120, 119, 108, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 40% 80%, rgba(120, 119, 108, 0.15) 0%, transparent 50%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+  }
 
-    .hover\:bg-gold:hover {
-        background-color: var(--gold);
-    }
+  .hover\:bg-gold:hover {
+    background-color: var(--gold);
+  }
 
-    .backdrop-blur-sm {
-        backdrop-filter: blur(8px);
-    }
+  .backdrop-blur-sm {
+    backdrop-filter: blur(8px);
+  }
 
-    * {
-        transition-property:
-            color, background-color, border-color, text-decoration-color, fill, stroke, opacity,
-            box-shadow, transform, filter, backdrop-filter;
-        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-        transition-duration: 150ms;
-    }
+  * {
+    transition-property:
+      color, background-color, border-color, text-decoration-color, fill, stroke, opacity,
+      box-shadow, transform, filter, backdrop-filter;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
 
-    .hover\:bg-gold-dark:hover {
-        background-color: var(--gold-dark);
-    }
+  .hover\:bg-gold-dark:hover {
+    background-color: var(--gold-dark);
+  }
 }
