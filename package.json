@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "netlify:dev": "netlify dev"
+    "netlify:dev": "netlify dev",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@bradgarropy/next-link": "^1.1.0",
