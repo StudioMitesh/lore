@@ -69,7 +69,7 @@ export default function NewEntryPage() {
   const [isLoadingTrips, setIsLoadingTrips] = React.useState(false);
 
 
-  // Search and autocomplete state
+
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const [isInputFocused, setIsInputFocused] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState("")
@@ -117,12 +117,12 @@ export default function NewEntryPage() {
   const handleSearchInput = React.useCallback((value: string) => {
     setSearchValue(value);
     
-    // Clear previous timeout
+
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
   
-    // Set new timeout for debounced search
+
     searchTimeoutRef.current = setTimeout(() => {
       performSearch(value);
     }, 300);
@@ -145,7 +145,7 @@ export default function NewEntryPage() {
         sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
       }
       
-      // Update form data
+
       setFormData(prev => ({
         ...prev,
         location: placeDetails.name,
@@ -172,7 +172,7 @@ export default function NewEntryPage() {
     setShowSearchResults(false)
   }, [])
 
-  // Handle manual search trigger
+
   const handleManualSearch = React.useCallback(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
@@ -234,12 +234,12 @@ export default function NewEntryPage() {
     handleInputChange('tags', formData.tags.filter(tag => tag !== tagToRemove))
   }
 
-  // Enhanced location selection with geocoding
+
   const handleLocationSelect = async (location: { lat: number; lng: number; address?: string }) => {
     try {
       setIsSearching(true);
       
-      // First try to get precise place details
+
       try {
         const placeDetails = await getPlaceDetails(location.lat, location.lng);
         
@@ -447,7 +447,7 @@ export default function NewEntryPage() {
       } as Trip));
       setAvailableTrips(trips);
       
-      // If we came from a trip page, auto-select that trip
+
       if (tripId) {
         const matchingTrip = trips.find(t => t.id === tripId);
         if (matchingTrip) {

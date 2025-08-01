@@ -38,7 +38,7 @@ export const getGoogleMapsLoader = async (): Promise<Loader> => {
     apiKey: key,
     version: "weekly",
     libraries: ["places", "geocoding", "marker", "geometry"],
-    // Add additional parameters for better performance
+
     language: "en",
     region: "US"
   })
@@ -55,7 +55,7 @@ export const loadGoogleMapsLibraries = async () => {
   try {
     const loader = await getGoogleMapsLoader()
     
-    // Load all required libraries in parallel
+
     await Promise.all([
       loader.importLibrary('maps'),
       loader.importLibrary('marker'),
@@ -64,7 +64,7 @@ export const loadGoogleMapsLibraries = async () => {
       loader.importLibrary('geometry')
     ])
     
-    // Verify that the new Places API is available
+
     if (!window.google?.maps?.places?.Place) {
       console.warn('New Places API not available, falling back to legacy API')
     } else {
@@ -85,12 +85,12 @@ export const loadGoogleMapsApi = async (): Promise<typeof google.maps> => {
     throw new Error("Not in browser")
   }
 
-  // Check if Google Maps is already loaded
+
   if (window.google?.maps && librariesLoaded) {
     return window.google.maps
   }
 
-  // Wait for libraries to load if currently loading
+
   if (isLoading) {
     await new Promise(resolve => {
       const checkLoaded = () => {
@@ -109,13 +109,13 @@ export const loadGoogleMapsApi = async (): Promise<typeof google.maps> => {
   return window.google.maps
 }
 
-// Utility function to check if the new Places API is available
+
 export const isNewPlacesApiAvailable = (): boolean => {
   return !!(window.google?.maps?.places?.Place && 
            window.google?.maps?.places?.AutocompleteSuggestion)
 }
 
-// Function to get available libraries
+
 export const getLoadedLibraries = (): string[] => {
   if (!window.google?.maps) return []
   
@@ -130,13 +130,13 @@ export const getLoadedLibraries = (): string[] => {
   return libraries
 }
 
-// Function to force reload libraries (useful for debugging)
+
 export const reloadGoogleMapsLibraries = async (): Promise<void> => {
   librariesLoaded = false
   isLoading = false
   loaderInstance = null
   
-  // Clear the global google object to force fresh load
+
   if (window.google) {
     delete (window as any).google
   }

@@ -1,7 +1,7 @@
 import { loadGoogleMapsApi } from '@/api/googleMapsLoader';
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 
-// Define types for Google Maps libraries to avoid type errors
+
 type GoogleMapsLibrary = {
   Map: typeof google.maps.Map;
   AdvancedMarkerElement: typeof google.maps.marker.AdvancedMarkerElement;
@@ -37,7 +37,7 @@ export class MapService {
     await loadGoogleMapsApi();
     const { Map } = (await window.google.maps.importLibrary("maps")) as unknown as GoogleMapsLibrary;
     
-    // Enhanced map options for better performance and visuals
+
     const enhancedOptions: google.maps.MapOptions = {
       ...options,
       gestureHandling: 'greedy', // Better touch/scroll handling
@@ -69,7 +69,7 @@ export class MapService {
       });
     }
 
-    // Add smooth zoom control
+
     this.mapInstance.addListener("zoom_changed", () => {
       this.updateMarkerSizes();
     });
@@ -235,14 +235,14 @@ export class MapService {
     locations.forEach(location => bounds.extend(location));
     
     if (locations.length === 1) {
-      // For single location, set center and reasonable zoom
+
       this.mapInstance.setCenter(locations[0]);
       this.mapInstance.setZoom(12);
     } else {
-      // For multiple locations, fit bounds with padding
+
       this.mapInstance.fitBounds(bounds, { top: padding, right: padding, bottom: padding, left: padding });
       
-      // Ensure minimum zoom level
+
       const listener = google.maps.event.addListener(this.mapInstance, 'bounds_changed', () => {
         const currentZoom = this.mapInstance!.getZoom();
         if (currentZoom && currentZoom > 15) {
@@ -462,7 +462,7 @@ export class MapService {
   showInfoWindow(content: string, position: google.maps.LatLngLiteral) {
     if (!this.mapInstance) return null;
     
-    // Close existing info window
+
     if (this.currentInfoWindow) {
       this.currentInfoWindow.close();
     }
@@ -486,7 +486,7 @@ export class MapService {
     }
   }
 
-  // Helper method to darken colors
+
   private darkenColor(color: string, amount: number): string {
     const hex = color.replace('#', '');
     const r = Math.max(0, parseInt(hex.substring(0, 2), 16) - Math.round(255 * amount));
@@ -495,7 +495,7 @@ export class MapService {
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
 
-  // Animate to location with smooth transition
+
   animateToLocation(location: google.maps.LatLngLiteral, zoom = 12) {
     if (!this.mapInstance) return;
     
@@ -505,7 +505,7 @@ export class MapService {
     }, 500);
   }
 
-  // Get optimal zoom level based on marker spread
+
   getOptimalZoom(locations: google.maps.LatLngLiteral[]): number {
     if (locations.length <= 1) return 12;
     

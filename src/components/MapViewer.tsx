@@ -64,7 +64,7 @@ export function MapViewer({
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isUpdatingMarkers, setIsUpdatingMarkers] = useState(false);
 
-  // Initialize map
+
   useEffect(() => {
     const initializeMap = async () => {
       try {
@@ -107,28 +107,28 @@ export function MapViewer({
     };
   }, [center, interactive, onLocationSelect, showControls, zoom]);
 
-  // Update map type
+
   useEffect(() => {
     if (!isLoading && mapServiceRef.current) {
       mapServiceRef.current.setMapType(mapType);
     }
   }, [mapType, isLoading]);
 
-  // Toggle traffic layer
+
   useEffect(() => {
     if (!isLoading && mapServiceRef.current) {
       mapServiceRef.current.toggleTraffic(showTraffic);
     }
   }, [showTraffic, isLoading]);
 
-  // Toggle transit layer
+
   useEffect(() => {
     if (!isLoading && mapServiceRef.current) {
       mapServiceRef.current.toggleTransit(showTransit);
     }
   }, [showTransit, isLoading]);
 
-  // Debounced marker updates
+
   const debouncedUpdateMarkers = useCallback(() => {
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
@@ -139,7 +139,7 @@ export function MapViewer({
     }, 100);
   }, [locations, trips, selectedTripId, currentPosition, enableClustering, onLocationClick]);
 
-  // Update markers when locations change
+
   useEffect(() => {
     if (!mapServiceRef.current || isLoading) return;
     debouncedUpdateMarkers();
@@ -160,7 +160,7 @@ export function MapViewer({
         await mapService.initMarkerClusterer();
       }
   
-      // Group locations by trip
+
       const tripLocations = new Map<string, MapLocation[]>();
       const standaloneLocations: MapLocation[] = [];
   
@@ -177,7 +177,7 @@ export function MapViewer({
   
       const allMarkers: google.maps.marker.AdvancedMarkerElement[] = [];
   
-      // Process trip locations
+
       for (const [tripId, tripLocs] of tripLocations) {
         const trip = trips.find(t => t.id === tripId);
         if (!trip) continue;
@@ -186,7 +186,7 @@ export function MapViewer({
         const tripColor = mapService.getTripColor(trip.status);
         const opacity = selectedTripId && !isSelected ? 0.4 : 1.0;
   
-        // Sort locations by timestamp if available
+
         const sortedLocs = tripLocs.sort((a, b) => {
           if (a.entry && b.entry) {
             return new Date(a.entry.timestamp).getTime() - new Date(b.entry.timestamp).getTime();
@@ -194,7 +194,7 @@ export function MapViewer({
           return 0;
         });
   
-        // Create route polyline if there are multiple locations
+
         if (sortedLocs.length > 1) {
           const path = sortedLocs.map(loc => ({ lat: loc.lat, lng: loc.lng }));
           const polyline = await mapService.createPolyline(path, {
@@ -211,7 +211,7 @@ export function MapViewer({
           }
         }
   
-        // Create markers for each location in the trip
+
         for (const [index, location] of sortedLocs.entries()) {
           const isFirst = index === 0;
           const isLast = index === sortedLocs.length - 1;
@@ -229,11 +229,11 @@ export function MapViewer({
               mapService.closeInfoWindow();
               onLocationClick?.(location);
               
-              // Animate to location on click
+
               mapService.animateToLocation({ lat: location.lat, lng: location.lng }, 14);
             });
             
-            // Add hover effects
+
             pin.addEventListener('mouseenter', () => {
               const content = `
                 <div class="p-3 max-w-xs">
@@ -250,7 +250,7 @@ export function MapViewer({
         }
       }
   
-      // Process standalone locations
+
       for (const location of standaloneLocations) {
         const pinColor = location.type === "visited" ? "#d4af37" :
                          location.type === "planned" ? "#4c6b54" : "#b22222";
@@ -268,11 +268,11 @@ export function MapViewer({
             mapService.closeInfoWindow();
             onLocationClick?.(location);
             
-            // Animate to location on click
+
             mapService.animateToLocation({ lat: location.lat, lng: location.lng }, 14);
           });
           
-          // Add hover effects
+
           pin.addEventListener('mouseenter', () => {
             const content = `
               <div class="p-3 max-w-xs">
@@ -288,7 +288,7 @@ export function MapViewer({
         }
       }
   
-      // Add current location marker if available
+
       if (currentPosition) {
         const pin = mapService.createCurrentLocationPin();
         const marker = await mapService.createMarker(currentPosition, pin, 'current-location');
@@ -307,11 +307,11 @@ export function MapViewer({
         }
       }
   
-      // Handle clustering or direct marker placement
+
       if (enableClustering && allMarkers.length > 10) {
         await mapService.initMarkerClusterer();
       } else {
-        // Place markers directly on map
+
         allMarkers.forEach(marker => {
           if (mapService.getMapInstance()) {
             marker.map = mapService.getMapInstance();
@@ -319,12 +319,12 @@ export function MapViewer({
         });
       }
   
-      // Fit map to show all locations with intelligent zoom
+
       const allLocations = locations.map(loc => ({ lat: loc.lat, lng: loc.lng }));
       if (currentPosition) allLocations.push(currentPosition);
       
       if (allLocations.length > 0) {
-        // Use intelligent fitting based on selection
+
         if (selectedTripId) {
           const selectedTripLocs = locations
             .filter(loc => loc.tripId === selectedTripId)
@@ -334,15 +334,15 @@ export function MapViewer({
             mapService.fitBounds(selectedTripLocs, 100);
           }
         } else if (allLocations.length === 1) {
-          // Single location - center and zoom appropriately
+
           mapService.setCenter(allLocations[0]);
           mapService.setZoom(12, true);
         } else {
-          // Multiple locations - smart fit
+
           const optimalZoom = mapService.getOptimalZoom(allLocations);
           mapService.fitBounds(allLocations, 80);
           
-          // Ensure we don't zoom too far out or in
+
           setTimeout(() => {
             const currentZoom = mapService.getMapInstance()?.getZoom();
             if (currentZoom && (currentZoom < 3 || currentZoom > 15)) {
@@ -351,7 +351,7 @@ export function MapViewer({
           }, 500);
         }
       } else if (locations.length === 0) {
-        // No locations - show world view
+
         mapService.setCenter({ lat: 20, lng: 0 });
         mapService.setZoom(3, true);
       }
@@ -362,7 +362,7 @@ export function MapViewer({
     }
   };
 
-  // Handle search functionality
+
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -518,7 +518,7 @@ export function MapViewer({
     }
   };
 
-  // Cleanup on unmount
+
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) {
@@ -532,7 +532,7 @@ export function MapViewer({
 
   return (
     <div className={cn("relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden bg-gray-50", className)}>
-      {/* Search and Controls */}
+
       {showSearch && (
         <div className="absolute top-4 left-4 right-4 z-10 flex justify-between">
           <div className="relative flex gap-2">
@@ -715,7 +715,7 @@ export function MapViewer({
         </div>
       )}
 
-      {/* Loading State */}
+
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/90 backdrop-blur-sm z-20">
           <div className="text-center">
@@ -726,7 +726,7 @@ export function MapViewer({
         </div>
       )}
 
-      {/* Updating State */}
+
       {isUpdatingMarkers && !isLoading && (
         <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-blue-500/90 text-white px-4 py-2 rounded-full text-sm font-medium z-20 backdrop-blur-sm">
           <Loader2 className="h-4 w-4 inline mr-2 animate-spin" />
@@ -734,17 +734,17 @@ export function MapViewer({
         </div>
       )}
 
-      {/* Interactive Helper */}
+
       {interactive && !isLoading && (
         <div className="absolute bottom-20 left-4 bg-white/95 backdrop-blur-sm border-2 border-gray-200 rounded-lg p-3 z-10 shadow-lg">
           <p className="text-sm text-gray-700 font-medium">📍 Click on the map to set location</p>
         </div>
       )}
 
-      {/* Map Container */}
+
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Enhanced Legend */}
+
       {(locations.length > 0 || trips.length > 0) && (
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
@@ -807,7 +807,7 @@ export function MapViewer({
         </motion.div>
       )}
 
-      {/* Selected Trip Indicator */}
+
       {selectedTripId && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
@@ -820,7 +820,7 @@ export function MapViewer({
         </motion.div>
       )}
 
-      {/* Compass Rose */}
+
       <div className="absolute bottom-8 right-8 w-20 h-20 opacity-70 pointer-events-none">
         <motion.div
           initial={{ rotate: 0 }}

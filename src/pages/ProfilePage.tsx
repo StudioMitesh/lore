@@ -55,7 +55,7 @@ export default function ProfilePage() {
           setProfile(profileData)
           setFormData(profileData)
         } else {
-          // Create default profile
+
           const defaultProfile: UserProfile = {
             uid: user.uid,
             first_name: user.displayName?.split(' ')[0] || '',
@@ -83,7 +83,7 @@ export default function ProfilePage() {
           setFormData(defaultProfile)
         }
 
-        // Load trips for timeline and stats
+
         const tripsQuery = query(
           collection(db, "trips"),
           where("uid", "==", user.uid)
@@ -97,7 +97,7 @@ export default function ProfilePage() {
         
         setTrips(tripsData)
 
-        // Load recent entries for timeline (limit to recent ones)
+
         const entriesQuery = query(
           collection(db, "entries"),
           where("uid", "==", user.uid),
@@ -110,16 +110,16 @@ export default function ProfilePage() {
           ...doc.data()
         })) as Entry[]
 
-        // Sort by timestamp and take recent ones
+
         const sortedEntries = entriesData
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
           .slice(0, 6)
         
         setRecentEntries(sortedEntries)
         
-        // Create timeline events from trips and entries
+
         const events: TimelineEvent[] = [
-  // Trip events
+
   ...tripsData
     .filter(trip => trip.startDate) // Only include trips with startDate
     .map(trip => ({
@@ -133,7 +133,7 @@ export default function ProfilePage() {
       createdAt: trip.createdAt,
       tripId: trip.id
     })),
-  // Entry events (limited)
+
   ...sortedEntries
     .filter(entry => entry.timestamp) // Only include entries with timestamp
     .slice(0, 10)
@@ -153,7 +153,7 @@ export default function ProfilePage() {
         
         setTimelineEvents(events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()))
         
-        // Update profile stats
+
         await updateProfileStats(tripsData, entriesData)
 
       } catch (error) {
@@ -170,7 +170,7 @@ export default function ProfilePage() {
   const updateProfileStats = async (tripsData: Trip[], entriesData: Entry[]) => {
     if (!user) return
 
-    // Calculate stats from trips and entries
+
     const allCountries = new Set<string>()
     tripsData.forEach(trip => {
       trip.countriesVisited.forEach(country => allCountries.add(country))
@@ -178,7 +178,7 @@ export default function ProfilePage() {
     entriesData.forEach(entry => allCountries.add(entry.country))
 
     const continents = new Set(Array.from(allCountries).map(country => {
-      // Simplified continent mapping - you might want to use a proper library
+
       const countryLower = country.toLowerCase()
       if (['usa', 'united states', 'canada', 'mexico'].some(c => countryLower.includes(c))) return 'North America'
       if (['brazil', 'argentina', 'chile', 'peru', 'colombia'].some(c => countryLower.includes(c))) return 'South America'
@@ -398,7 +398,7 @@ export default function ProfilePage() {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 md:gap-8">
-            {/* Left Sidebar - Profile Info */}
+
             <div className="space-y-6">
               <ProfileCard
                 name={`${profile.first_name} ${profile.last_name}`}
@@ -408,7 +408,7 @@ export default function ProfilePage() {
                 stats={profile.stats}
               />
 
-              {/* High-level Stats */}
+
               <div className="bg-parchment-light rounded-2xl border border-gold/20 p-5">
                 <h3 className="font-display text-lg font-medium text-deepbrown mb-4">Travel Overview</h3>
                 <div className="grid grid-cols-3 gap-4">
@@ -418,7 +418,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Profile Actions */}
+
               <div className="flex flex-col gap-3">
                 <Dialog open={editMode} onOpenChange={setEditMode}>
                   <DialogTrigger asChild>
@@ -435,7 +435,7 @@ export default function ProfilePage() {
                     </DialogHeader>
 
                     <div className="space-y-6 py-4">
-                      {/* Profile Images */}
+
                       <div className="space-y-4">
                         <h4 className="text-sm font-medium text-deepbrown">Profile Images</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -500,7 +500,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Basic Info */}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Input 
                           value={formData.first_name || ""} 
@@ -548,7 +548,7 @@ export default function ProfilePage() {
                         rows={4}
                       />
 
-                      {/* Social Links */}
+
                       <div className="space-y-4">
                         <h4 className="text-sm font-medium text-deepbrown">Social Links</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -564,7 +564,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Interests & Preferences */}
+
                       <div className="space-y-4">
                         <h4 className="text-sm font-medium text-deepbrown">Interests & Preferences</h4>
                         <div className="space-y-2">
@@ -632,7 +632,7 @@ export default function ProfilePage() {
                 </Button>
               </div>
 
-              {/* Personal Info Display */}
+
               {(profile.interests?.length || profile.languagesSpoken?.length || profile.favoritePlaces?.length) && (
                 <div className="bg-parchment-light rounded-2xl border border-gold/20 p-5">
                   <h3 className="font-display text-lg font-medium text-deepbrown mb-4">About Me</h3>
@@ -687,7 +687,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Right Content - Tabs */}
+
             <div className="space-y-8">
               <Tabs defaultValue="overview" className="w-full">
                 <TabsList className="bg-parchment-dark border border-gold/20">
@@ -698,7 +698,7 @@ export default function ProfilePage() {
 
                 <TabsContent value="overview" className="mt-6">
                   <div className="space-y-6">
-                    {/* Trip Highlights */}
+
                     {trips.length > 0 && (
                       <div className="bg-parchment-light rounded-2xl border border-gold/20 p-6">
                         <h3 className="font-display text-xl font-medium text-deepbrown mb-4">Recent Adventures</h3>
@@ -745,7 +745,7 @@ export default function ProfilePage() {
                       </div>
                     )}
 
-                    {/* Recent Entries */}
+
                     {recentEntries.length > 0 && (
                       <div className="bg-parchment-light rounded-2xl border border-gold/20 p-6">
                         <h3 className="font-display text-xl font-medium text-deepbrown mb-4">Latest Memories</h3>
@@ -842,7 +842,7 @@ export default function ProfilePage() {
                       </div>
                     )}
 
-                    {/* Quick Stats Grid */}
+
                     <div className="grid grid-cols-3 md:grid-cols-3 gap-4">
                       <div className="text-center p-4 bg-parchment rounded-lg">
                         <div className="text-2xl font-bold text-gold">{profile.stats.totalTrips}</div>

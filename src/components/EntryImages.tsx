@@ -38,7 +38,7 @@ export function EntryImages({
   const [loadingImages, setLoadingImages] = useState<Set<number>>(new Set())
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set())
 
-  // Handle case when no images are provided
+
   if (!images || images.length === 0) {
     return (
       <div className={cn(
@@ -123,7 +123,7 @@ export function EntryImages({
         console.error('Failed to share image:', error)
       }
     } else {
-      // Fallback: copy URL to clipboard
+
       navigator.clipboard.writeText(imageUrl)
     }
   }
@@ -139,7 +139,7 @@ export function EntryImages({
     }
   }
 
-  // Single image layout
+
   if (images.length === 1) {
     return (
       <div className={cn("relative group", className)}>
@@ -176,7 +176,7 @@ export function EntryImages({
     )
   }
 
-  // Multiple images layout
+
   const gridClass = images.length === 2 
     ? "grid-cols-2" 
     : images.length === 3 
@@ -221,7 +221,7 @@ export function EntryImages({
                 />
               )}
 
-              {/* Overlay for last image if there are more */}
+
               {index === maxDisplayImages - 1 && remainingCount > 0 && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <div className="text-white text-center">
@@ -231,12 +231,12 @@ export function EntryImages({
                 </div>
               )}
 
-              {/* Hover overlay */}
+
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                 <ZoomIn className="h-6 w-6 text-white" />
               </div>
 
-              {/* Image index badge */}
+
               <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity">
                 {index + 1}
               </div>
@@ -244,7 +244,7 @@ export function EntryImages({
           ))}
         </div>
 
-        {/* Image count badge */}
+
         {showCount && images.length > 1 && (
           <Badge 
             variant="secondary" 
@@ -255,12 +255,12 @@ export function EntryImages({
         )}
       </div>
 
-      {/* Lightbox */}
+
       {enableLightbox && (
         <Dialog open={isLightboxOpen} onOpenChange={setIsLightboxOpen}>
           <DialogContent className="max-w-7xl w-full h-full max-h-screen p-0 bg-black/95 border-none">
             <div className="relative w-full h-full flex items-center justify-center">
-              {/* Close button */}
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -270,7 +270,7 @@ export function EntryImages({
                 <X className="h-6 w-6" />
               </Button>
 
-              {/* Navigation buttons */}
+
               {images.length > 1 && (
                 <>
                   <Button
@@ -292,7 +292,7 @@ export function EntryImages({
                 </>
               )}
 
-              {/* Action buttons */}
+
               <div className="absolute top-4 left-4 z-20 flex gap-2">
                 {enableDownload && (
                   <Button
@@ -316,7 +316,7 @@ export function EntryImages({
                 )}
               </div>
 
-              {/* Current image */}
+
               <AnimatePresence mode="wait">
                 <motion.img
                   key={currentImageIndex}
@@ -330,12 +330,12 @@ export function EntryImages({
                 />
               </AnimatePresence>
 
-              {/* Image counter */}
+
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/50 text-white px-4 py-2 rounded-full">
                 {currentImageIndex + 1} / {images.length}
               </div>
 
-              {/* Thumbnails */}
+
               {images.length > 1 && images.length <= 10 && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 max-w-full overflow-x-auto">
                   {images.map((imageUrl, index) => (
@@ -359,7 +359,7 @@ export function EntryImages({
                 </div>
               )}
 
-              {/* Keyboard navigation hint */}
+
               {images.length > 1 && (
                 <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 text-white/70 text-sm">
                   Use arrow keys to navigate

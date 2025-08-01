@@ -43,14 +43,14 @@ export default function MapPage() {
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<string>("");
 
-  // Custom location state
+
   const [locationSearchQuery, setLocationSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{ description: string; placeId: string }[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isAddingLocation, setIsAddingLocation] = useState(false);
 
-  // Location modal state
+
   const [selectedLocation, setSelectedLocation] = useState<MapLocationWithDetails | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
   
@@ -62,7 +62,7 @@ export default function MapPage() {
     description: ""
   });
 
-  // trip routes states
+
   const [_tripRoutes, setTripRoutes] = useState<TripRoute[]>([]);
   const [mapStats, setMapStats] = useState<MapStats | null>(null);
   const [showMapStats, _setShowMapStats] = useState(false);
@@ -95,16 +95,16 @@ export default function MapPage() {
     }
   };
 
-  // Handle search input with debouncing
+
   const handleSearchInput = (value: string) => {
     setLocationSearchQuery(value);
     
-    // Clear previous timeout
+
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
   
-    // Set new timeout for debounced search
+
     searchTimeoutRef.current = setTimeout(() => {
       performSearch(value);
     }, 300);
@@ -112,7 +112,7 @@ export default function MapPage() {
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Handle search result selection
+
   const handleSearchResultSelect = async (result: { description: string; placeId: string }) => {
     try {
       const placeDetails = await getPlaceDetailsFromPlaceId(result.placeId);
@@ -260,7 +260,7 @@ export default function MapPage() {
             ...doc.data()
           })) as Entry[];
   
-          // Filter and deduplicate locations
+
           const uniqueLocations = new Map<string, Entry>();
           entries
             .filter(entry => entry.coordinates?.lat && entry.coordinates?.lng)
@@ -288,12 +288,12 @@ export default function MapPage() {
             }));
   
           if (locations.length > 0) {
-            // Calculate route distance (rough estimate)
+
             let totalDistance = 0;
             for (let i = 1; i < locations.length; i++) {
               const prev = locations[i - 1];
               const curr = locations[i];
-              // Haversine formula for distance calculation
+
               const R = 6371; // Earth's radius in km
               const dLat = (curr.lat - prev.lat) * Math.PI / 180;
               const dLon = (curr.lng - prev.lng) * Math.PI / 180;
@@ -380,7 +380,7 @@ export default function MapPage() {
       toast.success(`Custom location "${newLocation.name}" added successfully!`);
       setShowLocationDialog(false);
       
-      // Reset form
+
       setNewLocation({
         name: "",
         type: "visited",
@@ -411,15 +411,15 @@ export default function MapPage() {
     const locations: MapLocationWithDetails[] = [];
     const processedLocations = new Set<string>();
   
-    // Add trip-based locations from entries with better deduplication
+
     trips.forEach(trip => {
       const tripLocations = new Map<string, Entry>();
       
-      // Get ALL entries for the trip, not just recent ones
+
       trip.recentEntries.forEach(entry => {
         if (entry.coordinates?.lat && entry.coordinates?.lng) {
           const key = `${entry.coordinates.lat.toFixed(6)},${entry.coordinates.lng.toFixed(6)}`;
-          // Keep the most recent entry for each unique location
+
           if (!tripLocations.has(key) || 
               (tripLocations.get(key) && new Date(entry.timestamp) > new Date(tripLocations.get(key)!.timestamp))) {
             tripLocations.set(key, entry);
@@ -447,7 +447,7 @@ export default function MapPage() {
       });
     });
   
-    // Add standalone entry locations
+
     standaloneEntries.forEach(entry => {
       if (entry.coordinates?.lat && entry.coordinates?.lng) {
         const locationKey = `${entry.coordinates.lat},${entry.coordinates.lng}`;
@@ -467,7 +467,7 @@ export default function MapPage() {
       }
     });
   
-    // Add custom locations
+
     customLocations.forEach(location => {
       const locationKey = `${location.lat},${location.lng}`;
       if (!processedLocations.has(locationKey)) {
@@ -487,11 +487,11 @@ export default function MapPage() {
     const newSelectedTrip = selectedTrip === tripId ? "" : tripId;
     setSelectedTrip(newSelectedTrip);
     
-    // If a trip is selected, focus the map on that trip's locations
+
     if (newSelectedTrip) {
       const tripLocations = getAllMapLocations().filter(loc => loc.tripId === newSelectedTrip);
       if (tripLocations.length > 0) {
-        // The MapViewer will automatically focus on these locations via the selectedTripId prop
+
         console.log(`Focusing on trip: ${trips.find(t => t.id === newSelectedTrip)?.name}`);
       }
     }
@@ -602,7 +602,7 @@ export default function MapPage() {
                     </DialogHeader>
                     
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Form Section */}
+
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="location-name" className="text-deepbrown font-medium">
@@ -696,7 +696,7 @@ export default function MapPage() {
                           />
                         </div>
 
-                        {/* Coordinates Display */}
+
                         {newLocation.coordinates.lat !== 0 && (
                           <div className="space-y-2">
                             <Label className="text-deepbrown font-medium">Coordinates</Label>
@@ -715,7 +715,7 @@ export default function MapPage() {
                           </div>
                         )}
 
-                        {/* Search Integration */}
+
                         <div className="space-y-2">
                           <Label className="text-deepbrown font-medium">
                             Search & Set Location
@@ -780,7 +780,7 @@ export default function MapPage() {
                         </div>
                       </div>
 
-                      {/* Map Section */}
+
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label className="text-deepbrown font-medium">
@@ -804,7 +804,7 @@ export default function MapPage() {
                           />
                         </div>
 
-                        {/* Location Status */}
+
                         {newLocation.coordinates.lat !== 0 ? (
                           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                             <div className="flex items-start gap-3">
@@ -921,7 +921,7 @@ export default function MapPage() {
                     </motion.div>
                   ))}
 
-                  {/* Standalone entries section */}
+
                   {standaloneEntries.length > 0 && (
                     <div className="mt-6">
                       <h4 className="text-sm font-medium text-deepbrown/70 mb-2 px-2">Standalone Entries</h4>
@@ -1126,7 +1126,7 @@ export default function MapPage() {
         </div>
       </main>
 
-      {/* Location Modal */}
+
       <LocationModal
         isOpen={showLocationModal}
         onClose={() => {
