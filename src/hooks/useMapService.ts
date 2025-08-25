@@ -29,11 +29,11 @@ export function useMapService() {
       setIsLoading(false);
       throw error;
     }
-  }, []);
+  }, [mapServiceRef]);
 
   const cleanup = useCallback(() => {
     mapServiceRef.current = null;
-  }, []);
+  }, [mapServiceRef]);
 
   return {
     mapServiceRef,
