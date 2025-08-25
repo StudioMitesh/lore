@@ -26,7 +26,7 @@ import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapViewer } from '@/components/MapViewer';
+import { MapViewer } from '@/components/map/MapViewer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/context/useAuth';
 import { entryService } from '@/services/entryService';

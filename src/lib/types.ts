@@ -345,3 +345,23 @@ export interface AutocompleteResponse {
   fullText: string;
   predictions: AutocompletePredictionRaw[];
 }
+
+export interface MapViewerProps {
+  locations: MapLocation[];
+  trips?: TripWithDetails[];
+  selectedTripId?: string;
+  className?: string;
+  onLocationSelect?: (location: { lat: number; lng: number; address?: string }) => void;
+  onLocationClick?: (location: MapLocation) => void;
+  interactive?: boolean;
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  showSearch?: boolean;
+  showControls?: boolean;
+  tripRoutes?: TripRoute[];
+  selectedRouteId?: string;
+  showRouteOptimization?: boolean;
+  enableClustering?: boolean;
+  showStreetView?: boolean;
+  customMapStyle?: google.maps.MapTypeStyle[];
+}

@@ -80,7 +80,7 @@ export class MapService {
     if (!this.mapInstance) return;
     const zoom = this.mapInstance.getZoom() || 10;
 
-    // Adjust marker sizes based on zoom level
+
     this.allMarkers.forEach((marker) => {
       const content = marker.content as HTMLElement;
       if (content) {
@@ -91,12 +91,12 @@ export class MapService {
   }
 
   clearMarkers() {
-    // Clear clusterer first
+
     if (this.markerClusterer) {
       this.markerClusterer.clearMarkers();
     }
 
-    // Remove all markers from map
+
     this.markers.forEach((marker) => {
       if (marker.map) marker.map = null;
     });
@@ -145,7 +145,7 @@ export class MapService {
       'maps'
     )) as unknown as GoogleMapsLibrary;
 
-    // Enhanced polyline options for better visuals
+
     const enhancedOptions: google.maps.PolylineOptions = {
       path,
       map: this.mapInstance,
