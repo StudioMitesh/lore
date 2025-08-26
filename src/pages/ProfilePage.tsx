@@ -57,9 +57,11 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [recentEntries, setRecentEntries] = useState<Entry[]>([]);
@@ -766,6 +768,7 @@ export default function ProfilePage() {
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: index * 0.1 }}
                               className="p-4 bg-parchment rounded-lg border border-gold/10 hover:border-gold/30 transition-colors cursor-pointer"
+                              onClick={() => navigate(`/trip/${trip.id}`)}
                             >
                               <div className="flex items-start justify-between mb-2">
                                 <h4 className="font-medium text-deepbrown">{trip.name}</h4>
