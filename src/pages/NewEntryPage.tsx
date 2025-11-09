@@ -97,9 +97,9 @@ export default function NewEntryPage() {
   const [currentTag, setCurrentTag] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [locationSelected, setLocationSelected] = React.useState(false);
-  const [searchParams] = useSearchParams();
-  const tripId = searchParams.get('tripId');
-  const dayLogId = searchParams.get('dayLogId');
+  const searchParams = useSearchParams();
+  const tripId = searchParams?.get('tripId') || null;
+  const dayLogId = searchParams?.get('dayLogId') || null;
   const [associatedTrip, setAssociatedTrip] = React.useState<Trip | null>(null);
   const [associatedDayLog, _setAssociatedDayLog] = React.useState<DayLog | null>(null);
   const [showTripAssociation, setShowTripAssociation] = React.useState(false);
