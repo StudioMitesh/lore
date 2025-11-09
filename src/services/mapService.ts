@@ -33,14 +33,28 @@ export class MapService {
     interactive: boolean,
     onLocationSelect?: (location: { lat: number; lng: number; address?: string }) => void
   ) {
-    await loadGoogleMapsApi();
+    if (this.mapInstance) {
+      console.warn('Map already initialized. Skipping re-initialization.');
+      return this.mapInstance;
+    }
+
+    try {
+      await loadGoogleMapsApi();
+    } catch (error: any) {
+      console.error('Failed to load Google Maps API:', error);
+      if (error?.message?.includes('OverQuotaMapError') || error?.message?.includes('OVER_QUOTA')) {
+        throw new Error('Google Maps API quota exceeded. Please check your API key billing and quota limits.');
+      }
+      throw error;
+    }
+
     const { Map } = (await window.google.maps.importLibrary(
       'maps'
     )) as unknown as GoogleMapsLibrary;
 
     const enhancedOptions: google.maps.MapOptions = {
       ...options,
-      gestureHandling: 'greedy', // Better touch/scroll handling
+      gestureHandling: 'greedy',
       restriction: {
         latLngBounds: {
           north: 85,
@@ -121,7 +135,7 @@ export class MapService {
       'marker'
     )) as unknown as GoogleMapsLibrary;
     const marker = new AdvancedMarkerElement({
-      map: null, // Don't add to map immediately - we'll handle this via clustering
+      map: null,
       position,
       content,
     });
@@ -207,7 +221,7 @@ export class MapService {
     const renderer = new DirectionsRenderer({
       ...options,
       directions,
-      preserveViewport: true, // Don't auto-fit bounds
+      preserveViewport: true,
     });
 
     this.directionsRenderers.set(routeId, renderer);
@@ -276,7 +290,7 @@ export class MapService {
 
   setCenter(center: google.maps.LatLngLiteral) {
     if (!this.mapInstance) return;
-    this.mapInstance.panTo(center); // Use panTo for smooth animation
+    this.mapInstance.panTo(center);
   }
 
   getCenter() {
@@ -531,6 +545,51 @@ export class MapService {
     setTimeout(() => {
       this.setZoom(zoom, true);
     }, 500);
+  }
+
+  destroy() {
+    this.clearMarkers();
+    
+    this.polylines.forEach((polyline) => {
+      polyline.setMap(null);
+    });
+    this.polylines.clear();
+    
+    this.directionsRenderers.forEach((renderer) => {
+      renderer.setMap(null);
+    });
+    this.directionsRenderers.clear();
+    
+    if (this.trafficLayer) {
+      this.trafficLayer.setMap(null);
+      this.trafficLayer = null;
+    }
+    
+    if (this.transitLayer) {
+      this.transitLayer.setMap(null);
+      this.transitLayer = null;
+    }
+    
+    if (this.currentInfoWindow) {
+      this.currentInfoWindow.close();
+      this.currentInfoWindow = null;
+    }
+    
+    if (this.markerClusterer) {
+      this.markerClusterer.clearMarkers();
+      this.markerClusterer = null;
+    }
+    
+    if (this.mapInstance) {
+      if (window.google?.maps?.event) {
+        google.maps.event.clearInstanceListeners(this.mapInstance);
+      }
+      this.mapInstance = null;
+    }
+    
+    this.directionsService = null;
+    this.streetViewService = null;
+    this.allMarkers = [];
   }
 
   getOptimalZoom(locations: google.maps.LatLngLiteral[]): number {

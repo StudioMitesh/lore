@@ -3,10 +3,10 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Map, BookOpen, Globe } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { AnimatedButton } from '@/components/ui/animated-button';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   return (
     <div className="min-h-screen flex flex-col parchment-texture relative overflow-hidden">
       <Navbar />
@@ -30,7 +30,7 @@ export default function LandingPage() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <AnimatedButton
-                    onClick={() => navigate('/dashboard')}
+                    onClick={() => router.push('/dashboard')}
                     size="lg"
                     animationType="glow"
                   >
@@ -38,7 +38,7 @@ export default function LandingPage() {
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </AnimatedButton>
                   <AnimatedButton
-                    onClick={() => navigate('/profile')}
+                    onClick={() => router.push('/profile')}
                     size="lg"
                     variant="outline"
                     className="border-gold/30"

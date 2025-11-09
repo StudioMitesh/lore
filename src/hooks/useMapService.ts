@@ -11,28 +11,44 @@ export function useMapService() {
     interactive: boolean,
     onLocationSelect?: (location: { lat: number; lng: number; address?: string }) => void
   ) => {
+    if (mapServiceRef.current?.getMapInstance()) {
+      console.warn('Map service already initialized');
+      setIsLoading(false);
+      return mapServiceRef.current;
+    }
+
     try {
       setIsLoading(true);
-      const mapService = new MapService();
-      mapServiceRef.current = mapService;
+      
+      if (!mapServiceRef.current) {
+        mapServiceRef.current = new MapService();
+      }
 
-      await mapService.initializeMap(
+      await mapServiceRef.current.initializeMap(
         container,
         options,
         interactive,
         onLocationSelect
       );
       setIsLoading(false);
-      return mapService;
-    } catch (error) {
+      return mapServiceRef.current;
+    } catch (error: any) {
       console.error('Failed to initialize map:', error);
       setIsLoading(false);
+      
+      if (error?.message?.includes('quota') || error?.message?.includes('OVER_QUOTA')) {
+        throw new Error('Google Maps API quota exceeded. Please check your billing and quota limits.');
+      }
+      
       throw error;
     }
   }, [mapServiceRef]);
 
   const cleanup = useCallback(() => {
-    mapServiceRef.current = null;
+    if (mapServiceRef.current) {
+      mapServiceRef.current.destroy();
+      mapServiceRef.current = null;
+    }
   }, [mapServiceRef]);
 
   return {

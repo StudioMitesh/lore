@@ -1,20 +1,21 @@
+'use client';
 import { useState } from 'react';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { doc, setDoc } from 'firebase/firestore';
 import { type UserProfile } from '@/lib/types';
 import { formatISO } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { auth, db } from '../api/firebase';
+import { auth, db } from '@/lib/firebase';
 
 const RegisterPage = () => {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const validateForm = () => {
     if (!username || !email || !password) {
@@ -40,6 +41,12 @@ const RegisterPage = () => {
     e.preventDefault();
 
     if (!validateForm()) return;
+
+    if (!auth || !db) {
+      toast.error('Firebase is not initialized. Please check your environment variables.');
+      console.error('Firebase auth or db is not available', { auth, db });
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -87,10 +94,20 @@ const RegisterPage = () => {
 
       await setDoc(doc(db, 'profiles', user.uid), newProfile);
       toast.success('Registration successful!');
-      navigate('/dashboard');
+      router.push('/dashboard');
     } catch (err: any) {
       console.error('Registration error:', err);
-      toast.error(err.message || 'Failed to register');
+      if (err.code === 'auth/email-already-in-use') {
+        toast.error('This email is already registered. Please login instead.');
+      } else if (err.code === 'auth/weak-password') {
+        toast.error('Password is too weak. Please use a stronger password.');
+      } else if (err.code === 'auth/invalid-email') {
+        toast.error('Invalid email address. Please enter a valid email.');
+      } else if (err.code === 'auth/network-request-failed') {
+        toast.error('Network error. Please check your connection.');
+      } else {
+        toast.error(err.message || 'Failed to register. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +140,12 @@ const RegisterPage = () => {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <Button onClick={(e) => handleRegister(e)} className="w-full mb-3" disabled={isLoading}>
+        <Button 
+          type="submit"
+          onClick={(e) => handleRegister(e)} 
+          className="w-full mb-3" 
+          disabled={isLoading}
+        >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -134,7 +156,11 @@ const RegisterPage = () => {
           )}
         </Button>
         <Button
-          onClick={() => navigate('/login')}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            router.push('/login');
+          }}
           className="w-full"
           variant="outline"
           disabled={isLoading}

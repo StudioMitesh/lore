@@ -20,7 +20,8 @@ import {
   Plus,
   User,
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,7 +35,7 @@ import { type TripWithDetails, type Entry } from '@/lib/types';
 import { toast } from 'sonner';
 
 export default function TripDisplayPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const params = useParams();
   const { user } = useAuth();
   const tripId = params?.id as string;
@@ -56,7 +57,7 @@ export default function TripDisplayPage() {
 
       if (!tripData) {
         toast.error('Trip not found');
-        navigate('/dashboard');
+        router.push('/dashboard');
         return;
       }
 
@@ -65,7 +66,7 @@ export default function TripDisplayPage() {
     } catch (error) {
       console.error('Error loading trip:', error);
       toast.error('Failed to load trip');
-      navigate('/dashboard');
+      router.push('/dashboard');
     } finally {
       setIsLoading(false);
     }
@@ -208,7 +209,7 @@ export default function TripDisplayPage() {
             <p className="text-deepbrown/70 mb-6">
               The trip you're looking for doesn't exist or may have been removed.
             </p>
-            <Button onClick={() => navigate('/dashboard')} className="bg-gold hover:bg-gold/90">
+            <Button onClick={() => router.push('/dashboard')} className="bg-gold hover:bg-gold/90">
               Back to Dashboard
             </Button>
           </div>
@@ -230,7 +231,7 @@ export default function TripDisplayPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => router.back()}
                 className="border-gold/30 bg-transparent h-8 w-8 sm:h-9 sm:w-9"
               >
                 <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -298,7 +299,7 @@ export default function TripDisplayPage() {
                 {isOwner && (
                   <Button
                     variant="outline"
-                    onClick={() => navigate(`/edit-trip/${trip.id}`)}
+                    onClick={() => router.push(`/edit-trip/${trip.id}`)}
                     className="border-gold/30 bg-transparent"
                   >
                     <Edit3 className="mr-2 h-4 w-4" />
@@ -348,7 +349,7 @@ export default function TripDisplayPage() {
                     )}
                   </h2>
                   {isOwner && (
-                    <AnimatedButton animationType="glow" onClick={() => navigate('/entry/new')}>
+                    <AnimatedButton animationType="glow" onClick={() => router.push('/entry/new')}>
                       <Plus className="mr-2 h-4 w-4" />
                       Add Entry
                     </AnimatedButton>
@@ -387,7 +388,7 @@ export default function TripDisplayPage() {
                         Start documenting your adventure by adding your first entry
                       </p>
                       {isOwner && (
-                        <AnimatedButton animationType="glow" onClick={() => navigate('/entry/new')}>
+                        <AnimatedButton animationType="glow" onClick={() => router.push('/entry/new')}>
                           <Plus className="mr-2 h-4 w-4" />
                           Add First Entry
                         </AnimatedButton>
@@ -559,7 +560,7 @@ export default function TripDisplayPage() {
                           key={entry.id}
                           className="flex items-center gap-3 p-2 hover:bg-parchment rounded-lg transition-colors cursor-pointer"
                           whileHover={{ x: 3 }}
-                          onClick={() => navigate(`/entry/${entry.id}`)}
+                          onClick={() => router.push(`/entry/${entry.id}`)}
                         >
                           <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center">
                             {getEntryIcon(entry.type)}
@@ -590,7 +591,7 @@ export default function TripDisplayPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-start border-gold/30 bg-transparent"
-                      onClick={() => navigate('/entry/new')}
+                      onClick={() => router.push('/entry/new')}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Add Entry
@@ -598,7 +599,7 @@ export default function TripDisplayPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-start border-gold/30 bg-transparent"
-                      onClick={() => navigate(`/edit-trip/${trip.id}`)}
+                      onClick={() => router.push(`/edit-trip/${trip.id}`)}
                     >
                       <Edit3 className="mr-2 h-4 w-4" />
                       Edit Trip
@@ -606,7 +607,7 @@ export default function TripDisplayPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-start border-gold/30 bg-transparent"
-                      onClick={() => navigate('/map')}
+                      onClick={() => router.push('/map')}
                     >
                       <MapPin className="mr-2 h-4 w-4" />
                       View on Map

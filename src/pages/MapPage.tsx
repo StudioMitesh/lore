@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { db } from '@/api/firebase';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/useAuth';
 import {
   type Entry,

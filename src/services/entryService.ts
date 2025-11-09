@@ -11,7 +11,7 @@ import {
   increment,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '@/api/firebase';
+import { db, storage } from '@/lib/firebase';
 import {
   type Entry,
   type CreateEntryData,

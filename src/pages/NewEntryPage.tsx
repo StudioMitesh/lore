@@ -46,7 +46,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { db, storage } from '@/api/firebase';
+import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/context/useAuth';
 import {
   type Entry,
@@ -56,7 +56,7 @@ import {
   type Trip,
 } from '@/lib/types';
 import { toast } from 'sonner';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { EntryImages } from '@/components/EntryImages';
 import {
   getNearbyPlaces,
@@ -78,7 +78,7 @@ interface FormData {
 }
 
 export default function NewEntryPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
 
   const [formData, setFormData] = React.useState<FormData>({
@@ -586,9 +586,9 @@ export default function NewEntryPage() {
 
       toast.success(isDraft ? 'Entry saved as draft!' : 'Entry saved successfully!');
       if (tripId) {
-        navigate(`/trip/${tripId}`);
+        router.push(`/trip/${tripId}`);
       } else {
-        navigate('/dashboard');
+        router.push('/dashboard');
       }
     } catch (error) {
       console.error('Error saving entry:', error);
@@ -1150,7 +1150,7 @@ export default function NewEntryPage() {
               <Button
                 variant="outline"
                 className="border-gold/30 bg-transparent"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => router.push('/dashboard')}
               >
                 Cancel
               </Button>

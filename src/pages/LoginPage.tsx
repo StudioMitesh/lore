@@ -1,17 +1,18 @@
-import { useState } from 'react';
+'use client';
+import { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/useAuth';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { auth } from '../api/firebase';
+import { auth } from '@/lib/firebase';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -20,21 +21,44 @@ const LoginPage = () => {
       toast.error('Please enter both email and password');
       return;
     }
+    
+    if (!auth) {
+      toast.error('Firebase is not initialized. Please check your environment variables.');
+      console.error('Firebase auth is not available');
+      return;
+    }
+    
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success('Welcome back!');
-      navigate('/dashboard');
+      router.push('/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
-      toast.error(err.message || 'Failed to login');
+      if (err.code === 'auth/invalid-credential') {
+        toast.error('Invalid email or password. Please try again.');
+      } else if (err.code === 'auth/user-not-found') {
+        toast.error('No account found with this email. Please register first.');
+      } else if (err.code === 'auth/wrong-password') {
+        toast.error('Incorrect password. Please try again.');
+      } else if (err.code === 'auth/network-request-failed') {
+        toast.error('Network error. Please check your connection.');
+      } else {
+        toast.error(err.message || 'Failed to login. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
+
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return null;
   }
 
   return (
@@ -55,7 +79,12 @@ const LoginPage = () => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <Button onClick={(e) => handleLogin(e)} className="w-full mb-3" disabled={isLoading}>
+        <Button 
+          type="submit"
+          onClick={(e) => handleLogin(e)} 
+          className="w-full mb-3" 
+          disabled={isLoading}
+        >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -66,7 +95,11 @@ const LoginPage = () => {
           )}
         </Button>
         <Button
-          onClick={() => navigate('/register')}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            router.push('/register');
+          }}
           variant="outline"
           className="w-full"
           disabled={isLoading}

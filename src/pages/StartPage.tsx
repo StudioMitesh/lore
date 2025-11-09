@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+'use client';
+import Link from 'next/link';
 import { AnimatedButton } from '@/components/ui/animated-button';
 import { motion } from 'framer-motion';
 
@@ -17,10 +18,10 @@ const StartPage = () => {
         Sign in to start exploring and documenting your adventures.
       </p>
       <div className="flex flex-col sm:flex-row gap-4">
-        <Link to="/login">
+        <Link href="/login">
           <AnimatedButton animationType="glow">Login</AnimatedButton>
         </Link>
-        <Link to="/register">
+        <Link href="/register">
           <AnimatedButton animationType="float">Register</AnimatedButton>
         </Link>
       </div>

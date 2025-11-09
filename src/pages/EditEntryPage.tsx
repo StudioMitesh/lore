@@ -18,7 +18,8 @@ import {
   Loader2,
   Trash2,
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import {
   collection,
   doc,
@@ -47,7 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { db, storage } from '@/api/firebase';
+import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/context/useAuth';
 import { type Entry, type UserProfile, type Trip, type DayLog } from '@/lib/types';
 import { toast } from 'sonner';
@@ -72,7 +73,7 @@ interface FormData {
 }
 
 export default function EditEntryPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const params = useParams();
   const { user } = useAuth();
   const entryId = params?.id as string;
@@ -113,7 +114,7 @@ export default function EditEntryPage() {
 
         if (!entrySnap.exists()) {
           toast.error('Entry not found');
-          navigate('/dashboard');
+          router.push('/dashboard');
           return;
         }
 
@@ -121,7 +122,7 @@ export default function EditEntryPage() {
 
         if (entryData.uid !== user.uid) {
           toast.error("You don't have permission to edit this entry");
-          navigate('/dashboard');
+          router.push('/dashboard');
           return;
         }
 
@@ -142,7 +143,7 @@ export default function EditEntryPage() {
       } catch (error) {
         console.error('Error loading entry:', error);
         toast.error('Failed to load entry');
-        navigate('/dashboard');
+        router.push('/dashboard');
       } finally {
         setIsInitialLoading(false);
       }
@@ -406,9 +407,9 @@ export default function EditEntryPage() {
       toast.success(isDraft ? 'Entry saved as draft!' : 'Entry updated successfully!');
 
       if (entry.tripId) {
-        navigate(`/trip/${entry.tripId}`);
+        router.push(`/trip/${entry.tripId}`);
       } else {
-        navigate('/dashboard');
+        router.push('/dashboard');
       }
     } catch (error) {
       console.error('Error updating entry:', error);
@@ -428,7 +429,7 @@ export default function EditEntryPage() {
       await deleteDoc(doc(db, 'entries', entry.id));
 
       toast.success('Entry deleted successfully');
-      navigate('/dashboard');
+      router.push('/dashboard');
     } catch (error) {
       console.error('Error deleting entry:', error);
       toast.error('Failed to delete entry');
@@ -511,7 +512,7 @@ export default function EditEntryPage() {
             <p className="text-deepbrown/70 mb-6">
               The entry you're looking for doesn't exist or you don't have permission to edit it.
             </p>
-            <Button onClick={() => navigate('/dashboard')} className="bg-gold hover:bg-gold/90">
+            <Button onClick={() => router.push('/dashboard')} className="bg-gold hover:bg-gold/90">
               Back to Dashboard
             </Button>
           </div>
@@ -531,7 +532,7 @@ export default function EditEntryPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => router.back()}
                 className="border-gold/30 bg-transparent"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -928,7 +929,7 @@ export default function EditEntryPage() {
                 <Button
                   variant="outline"
                   className="border-gold/30 bg-transparent"
-                  onClick={() => navigate(-1)}
+                  onClick={() => router.back()}
                 >
                   Cancel
                 </Button>

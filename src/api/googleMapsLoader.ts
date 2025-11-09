@@ -1,28 +1,18 @@
 import { Loader } from '@googlemaps/js-api-loader';
 
 let loaderInstance: Loader | null = null;
-let apiKey: string | null = null;
 let librariesLoaded = false;
 let isLoading = false;
 
-const getGoogleMapsApiKey = async (): Promise<string> => {
-  if (apiKey) return apiKey;
-
-  try {
-    const response = await fetch('/.netlify/functions/google-maps-key');
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Google Maps API key: ${response.status}`);
-    }
-    const data = await response.json();
-    if (data.error) {
-      throw new Error(data.error);
-    }
-    apiKey = data.apiKey;
-    return apiKey || '';
-  } catch (error) {
-    console.error('Error fetching Google Maps API key:', error);
-    throw error;
+const getGoogleMapsApiKey = (): string => {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  
+  if (!apiKey) {
+    console.error('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set in environment variables');
+    throw new Error('Google Maps API key is not configured. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your .env.local file');
   }
+  
+  return apiKey;
 };
 
 export const getGoogleMapsLoader = async (): Promise<Loader> => {
@@ -32,7 +22,7 @@ export const getGoogleMapsLoader = async (): Promise<Loader> => {
 
   if (loaderInstance) return loaderInstance;
 
-  const key = await getGoogleMapsApiKey();
+  const key = getGoogleMapsApiKey();
 
   loaderInstance = new Loader({
     apiKey: key,
@@ -47,7 +37,24 @@ export const getGoogleMapsLoader = async (): Promise<Loader> => {
 };
 
 export const loadGoogleMapsLibraries = async () => {
-  if (librariesLoaded || isLoading) return;
+  if (librariesLoaded) {
+    return;
+  }
+  
+  if (isLoading) {
+    await new Promise((resolve) => {
+      const checkLoaded = () => {
+        if (librariesLoaded) {
+          resolve(void 0);
+        } else {
+          setTimeout(checkLoaded, 100);
+        }
+      };
+      checkLoaded();
+    });
+    return;
+  }
+  
   if (typeof window === 'undefined') return;
 
   isLoading = true;
@@ -65,13 +72,19 @@ export const loadGoogleMapsLibraries = async () => {
 
     if (!window.google?.maps?.places?.Place) {
       console.warn('New Places API not available, falling back to legacy API');
-    } else {
-      console.log('New Places API successfully loaded');
     }
 
     librariesLoaded = true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to load Google Maps libraries:', error);
+    isLoading = false;
+    
+    if (error?.message?.includes('OverQuotaMapError') || 
+        error?.message?.includes('OVER_QUOTA') ||
+        error?.code === 'OVER_QUOTA_MAP_ERROR') {
+      throw new Error('Google Maps API quota exceeded. Please check your API key billing and quota limits in Google Cloud Console.');
+    }
+    
     throw error;
   } finally {
     isLoading = false;

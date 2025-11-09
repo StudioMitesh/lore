@@ -60,13 +60,13 @@ yarn install
 Create a .env file in the root and add:
 
 ```
-VITE_FIREBASE_API_KEY=your-key
-VITE_FIREBASE_AUTH_DOMAIN=your-domain
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_STORAGE_BUCKET=your-bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your-id
-VITE_FIREBASE_APP_ID=your-app-id
-VITE_GOOGLE_MAPS_API_KEY=your-maps-api-key
+NEXT_PUBLIC_FIREBASE_API_KEY=your-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-id
+NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-maps-api-key
 ```
 4. Start the development server
 `npm run dev`

@@ -16,7 +16,8 @@ import {
   Users,
   User,
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { storage } from '@/api/firebase';
+import { storage } from '@/lib/firebase';
 import { useAuth } from '@/context/useAuth';
 import { tripService } from '@/services/tripService';
 import { type Trip, type CreateTripData } from '@/lib/types';
@@ -58,7 +59,7 @@ interface FormData {
 }
 
 export default function EditTripPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const params = useParams();
   const { user } = useAuth();
   const tripId = params?.id as string;
@@ -95,13 +96,13 @@ export default function EditTripPage() {
 
         if (!tripData) {
           toast.error('Trip not found');
-          navigate('/dashboard');
+          router.push('/dashboard');
           return;
         }
 
         if (tripData.uid !== user.uid) {
           toast.error("You don't have permission to edit this trip");
-          navigate('/dashboard');
+          router.push('/dashboard');
           return;
         }
 
@@ -120,7 +121,7 @@ export default function EditTripPage() {
       } catch (error) {
         console.error('Error loading trip:', error);
         toast.error('Failed to load trip');
-        navigate('/dashboard');
+        router.push('/dashboard');
       } finally {
         setIsInitialLoading(false);
       }
@@ -267,7 +268,7 @@ export default function EditTripPage() {
       await tripService.updateTrip(trip.id, updatedTripData);
 
       toast.success(isDraft ? 'Trip saved as draft!' : 'Trip updated successfully!');
-      navigate(`/trip/${trip.id}`);
+      router.push(`/trip/${trip.id}`);
     } catch (error) {
       console.error('Error updating trip:', error);
       toast.error('Failed to update trip. Please try again.');
@@ -288,7 +289,7 @@ export default function EditTripPage() {
       await tripService.deleteTrip(trip.id);
 
       toast.success('Trip deleted successfully');
-      navigate('/dashboard');
+      router.push('/dashboard');
     } catch (error) {
       console.error('Error deleting trip:', error);
       toast.error('Failed to delete trip');
@@ -330,7 +331,7 @@ export default function EditTripPage() {
             <p className="text-deepbrown/70 mb-6">
               The trip you're looking for doesn't exist or you don't have permission to edit it.
             </p>
-            <Button onClick={() => navigate('/dashboard')} className="bg-gold hover:bg-gold/90">
+            <Button onClick={() => router.push('/dashboard')} className="bg-gold hover:bg-gold/90">
               Back to Dashboard
             </Button>
           </div>
@@ -353,7 +354,7 @@ export default function EditTripPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => router.back()}
                 className="border-gold/30 bg-transparent mt-1 sm:mt-0"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -689,7 +690,7 @@ export default function EditTripPage() {
                 <Button
                   variant="outline"
                   className="border-gold/30 bg-transparent"
-                  onClick={() => navigate(-1)}
+                  onClick={() => router.back()}
                 >
                   Cancel
                 </Button>

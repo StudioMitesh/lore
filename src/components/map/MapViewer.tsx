@@ -29,9 +29,10 @@ export function MapViewer({
   enableClustering = false,
 }: MapViewerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  
+  const isInitializedRef = useRef(false);
+  const initializationAttemptRef = useRef(false);
 
-  const { mapServiceRef, isLoading, initializeMap } = useMapService();
+  const { mapServiceRef, isLoading, initializeMap, cleanup } = useMapService();
   const search = useMapSearch(mapServiceRef, interactive, onLocationSelect);
   const controls = useMapControls(mapServiceRef, isLoading);
   const { isUpdatingMarkers, debouncedUpdateMarkers } = useMapMarkers(
@@ -45,31 +46,81 @@ export function MapViewer({
     isLoading
   );
 
-
   useEffect(() => {
-    const initMap = async () => {
-      if (!mapRef.current) return;
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
 
-      await initializeMap(
-        mapRef.current,
-        {
-          center,
-          zoom,
-          mapId: '4578ddca5379c217baab8a20',
-          disableDefaultUI: !showControls,
-          mapTypeControl: showControls,
-          streetViewControl: showControls,
-          fullscreenControl: showControls,
-          zoomControl: showControls,
-          gestureHandling: 'greedy',
-        },
-        interactive,
-        onLocationSelect
-      );
+    const initMap = async () => {
+      if (initializationAttemptRef.current || isInitializedRef.current) {
+        return;
+      }
+
+      if (!mapRef.current || !isMounted) return;
+
+      if (mapServiceRef.current?.getMapInstance()) {
+        isInitializedRef.current = true;
+        return;
+      }
+
+      initializationAttemptRef.current = true;
+
+      try {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (!isMounted || !mapRef.current) {
+          initializationAttemptRef.current = false;
+          return;
+        }
+
+        await initializeMap(
+          mapRef.current,
+          {
+            center,
+            zoom,
+            mapId: '4578ddca5379c217baab8a20',
+            disableDefaultUI: !showControls,
+            mapTypeControl: showControls,
+            streetViewControl: showControls,
+            fullscreenControl: showControls,
+            zoomControl: showControls,
+            gestureHandling: 'greedy',
+          },
+          interactive,
+          onLocationSelect
+        );
+        
+        if (isMounted) {
+          isInitializedRef.current = true;
+        }
+      } catch (error: any) {
+        console.error('Map initialization error:', error);
+        initializationAttemptRef.current = false;
+        
+        if (error?.message?.includes('OverQuotaMapError') || 
+            error?.message?.includes('OVER_QUOTA') ||
+            error?.message?.includes('quota exceeded')) {
+          console.error('Google Maps API quota exceeded. Please check your API key billing and quota limits in Google Cloud Console.');
+        }
+      }
     };
 
-    initMap();
-  }, [center, interactive, onLocationSelect, showControls, zoom, initializeMap]);
+    timeoutId = setTimeout(() => {
+      initMap();
+    }, 50);
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (isInitializedRef.current) {
+        cleanup();
+        isInitializedRef.current = false;
+        initializationAttemptRef.current = false;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   useEffect(() => {

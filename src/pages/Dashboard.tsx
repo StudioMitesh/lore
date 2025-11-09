@@ -16,7 +16,7 @@ import {
   Plane,
   MapIcon,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,7 @@ import { useAuth } from '@/context/useAuth';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
   const [entries, setEntries] = useState<EntryWithTripInfo[]>([]);
@@ -218,7 +218,7 @@ export default function Dashboard() {
             <p className="text-deepbrown/70 mb-6">
               Please sign in to access your adventures and create new entries.
             </p>
-            <Button onClick={() => navigate('/login')} className="bg-gold hover:bg-gold/90">
+            <Button onClick={() => router.push('/login')} className="bg-gold hover:bg-gold/90">
               Sign In
             </Button>
           </div>
@@ -247,7 +247,7 @@ export default function Dashboard() {
               <AnimatedButton
                 animationType="glow"
                 className="shrink-0 text-sm sm:text-base"
-                onClick={() => navigate('/new-trip')}
+                onClick={() => router.push('/new-trip')}
               >
                 <Plane className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 New Trip
@@ -255,7 +255,7 @@ export default function Dashboard() {
               <AnimatedButton
                 animationType="glow"
                 className="shrink-0 text-sm sm:text-base"
-                onClick={() => navigate('/entry/new')}
+                onClick={() => router.push('/entry/new')}
               >
                 <Plus className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 New Entry
@@ -360,7 +360,7 @@ export default function Dashboard() {
                               key={trip.id}
                               trip={trip}
                               index={index}
-                              onClick={() => navigate(`/trip/${trip.id}`)}
+                              onClick={() => router.push(`/trip/${trip.id}`)}
                               onFavoriteToggle={() => handleTripFavoriteToggle(trip.id)}
                             />
                           ))}
@@ -418,14 +418,14 @@ export default function Dashboard() {
                         <div className="flex gap-3 justify-center">
                           <AnimatedButton
                             animationType="glow"
-                            onClick={() => navigate('/new-trip')}
+                            onClick={() => router.push('/new-trip')}
                           >
                             <Plane className="mr-2 h-4 w-4" />
                             Create Trip
                           </AnimatedButton>
                           <AnimatedButton
                             animationType="glow"
-                            onClick={() => navigate('/entry/new')}
+                            onClick={() => router.push('/entry/new')}
                           >
                             <Plus className="mr-2 h-4 w-4" />
                             Create Entry
@@ -444,7 +444,7 @@ export default function Dashboard() {
                           key={trip.id}
                           trip={trip}
                           index={index}
-                          onClick={() => navigate(`/trip/${trip.id}`)}
+                          onClick={() => router.push(`/trip/${trip.id}`)}
                           onFavoriteToggle={() => handleTripFavoriteToggle(trip.id)}
                         />
                       ))}
@@ -458,7 +458,7 @@ export default function Dashboard() {
                       <p className="text-deepbrown/70 mb-6">
                         Create your first trip to organize your travel memories
                       </p>
-                      <AnimatedButton animationType="glow" onClick={() => navigate('/new-trip')}>
+                      <AnimatedButton animationType="glow" onClick={() => router.push('/new-trip')}>
                         <Plane className="mr-2 h-4 w-4" />
                         Create First Trip
                       </AnimatedButton>
@@ -496,7 +496,7 @@ export default function Dashboard() {
                       <p className="text-deepbrown/70 mb-6">
                         Start your journey by creating your first travel entry
                       </p>
-                      <AnimatedButton animationType="glow" onClick={() => navigate('/entry/new')}>
+                      <AnimatedButton animationType="glow" onClick={() => router.push('/entry/new')}>
                         <Plus className="mr-2 h-4 w-4" />
                         Create First Entry
                       </AnimatedButton>
@@ -533,7 +533,7 @@ export default function Dashboard() {
                       <p className="text-deepbrown/70 mb-6">
                         Solo entries are individual memories not part of a trip
                       </p>
-                      <AnimatedButton animationType="glow" onClick={() => navigate('/entry/new')}>
+                      <AnimatedButton animationType="glow" onClick={() => router.push('/entry/new')}>
                         <Plus className="mr-2 h-4 w-4" />
                         Create Solo Entry
                       </AnimatedButton>
@@ -668,7 +668,7 @@ export default function Dashboard() {
                         key={entry.id}
                         className="flex items-center gap-3 p-2 hover:bg-parchment rounded-lg transition-colors cursor-pointer"
                         whileHover={{ x: 3 }}
-                        onClick={() => navigate(`/entry/${entry.id}`)}
+                        onClick={() => router.push(`/entry/${entry.id}`)}
                       >
                         <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center">
                           <MapPin className="h-4 w-4 text-gold" />
@@ -768,7 +768,7 @@ export default function Dashboard() {
                   <Button
                     variant="outline"
                     className="w-full justify-start border-gold/30 bg-transparent"
-                    onClick={() => navigate('/new-trip')}
+                    onClick={() => router.push('/new-trip')}
                   >
                     <Plane className="mr-2 h-4 w-4" />
                     New Trip
@@ -776,7 +776,7 @@ export default function Dashboard() {
                   <Button
                     variant="outline"
                     className="w-full justify-start border-gold/30 bg-transparent"
-                    onClick={() => navigate('/entry/new')}
+                    onClick={() => router.push('/entry/new')}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     New Entry
@@ -784,7 +784,7 @@ export default function Dashboard() {
                   <Button
                     variant="outline"
                     className="w-full justify-start border-gold/30 bg-transparent"
-                    onClick={() => navigate('/map')}
+                    onClick={() => router.push('/map')}
                   >
                     <MapIcon className="mr-2 h-4 w-4" />
                     View Map

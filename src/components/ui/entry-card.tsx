@@ -2,7 +2,7 @@
 import { motion } from 'framer-motion';
 import { format, isValid } from 'date-fns';
 import { Heart, MapPin, Calendar, Eye, Edit3, MoreVertical, Trash2, Plane } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -65,22 +65,22 @@ export function EntryCard({
   onFavoriteToggle,
   onDelete,
 }: EntryCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleCardClick = () => {
-    navigate(isDraft ? `/entry/edit/${id}` : `/entry/${id}`);
+    router.push(isDraft ? `/entry/edit/${id}` : `/entry/${id}`);
   };
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/entry/edit/${id}`);
+    router.push(`/entry/edit/${id}`);
   };
 
   const handleView = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/entry/${id}`);
+    router.push(`/entry/${id}`);
   };
 
   const handleFavorite = (e: React.MouseEvent) => {

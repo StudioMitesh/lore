@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
 import { Save, ImageIcon, Calendar, X, Plus, Tag, Plane, User, Users } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { storage } from '@/api/firebase';
+import { storage } from '@/lib/firebase';
 import { useAuth } from '@/context/useAuth';
 import { tripService } from '@/services/tripService';
 import { type CreateTripData } from '@/lib/types';
@@ -37,7 +37,7 @@ interface FormData {
 }
 
 export default function NewTripPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
 
   const [formData, setFormData] = React.useState<FormData>({
@@ -172,7 +172,7 @@ export default function NewTripPage() {
       const tripId = await tripService.createTrip(user.uid, tripData);
 
       toast.success(isDraft ? 'Trip saved as draft!' : 'Trip created successfully!');
-      navigate(`/trip/${tripId}`);
+      router.push(`/trip/${tripId}`);
     } catch (error) {
       console.error('Error creating trip:', error);
       toast.error('Failed to create trip. Please try again.');
@@ -513,7 +513,7 @@ export default function NewTripPage() {
               <Button
                 variant="outline"
                 className="border-gold/30 bg-transparent"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => router.push('/dashboard')}
               >
                 Cancel
               </Button>

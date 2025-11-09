@@ -21,7 +21,8 @@ import {
   X,
   Eye,
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +36,7 @@ import { type Entry, type Trip } from '@/lib/types';
 import { toast } from 'sonner';
 
 export default function EntryDisplayPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const params = useParams();
   const { user } = useAuth();
   const entryId = params?.id as string;
@@ -55,7 +56,7 @@ export default function EntryDisplayPage() {
 
       if (!entryData) {
         toast.error('Entry not found');
-        navigate('/dashboard');
+        router.push('/dashboard');
         return;
       }
 
@@ -72,7 +73,7 @@ export default function EntryDisplayPage() {
     } catch (error) {
       console.error('Error loading entry:', error);
       toast.error('Failed to load entry');
-      navigate('/dashboard');
+      router.push('/dashboard');
     } finally {
       setIsLoading(false);
     }
@@ -196,7 +197,7 @@ export default function EntryDisplayPage() {
             <p className="text-deepbrown/70 mb-6">
               The entry you're looking for doesn't exist or may have been removed.
             </p>
-            <Button onClick={() => navigate('/dashboard')} className="bg-gold hover:bg-gold/90">
+            <Button onClick={() => router.push('/dashboard')} className="bg-gold hover:bg-gold/90">
               Back to Dashboard
             </Button>
           </div>
@@ -218,7 +219,7 @@ export default function EntryDisplayPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => router.back()}
                 className="border-gold/30 bg-transparent"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -254,7 +255,7 @@ export default function EntryDisplayPage() {
                     <div className="flex items-center gap-2">
                       <Plane className="h-4 w-4 text-gold" />
                       <button
-                        onClick={() => navigate(`/trip/${trip.id}`)}
+                        onClick={() => router.push(`/trip/${trip.id}`)}
                         className="text-gold hover:text-gold/80 font-medium hover:underline"
                       >
                         {trip.name}
@@ -281,7 +282,7 @@ export default function EntryDisplayPage() {
                 {isOwner && (
                   <Button
                     variant="outline"
-                    onClick={() => navigate(`/entry/edit/${entry.id}`)}
+                    onClick={() => router.push(`/entry/edit/${entry.id}`)}
                     className="border-gold/30 bg-transparent"
                   >
                     <Edit3 className="mr-2 h-4 w-4" />
@@ -428,7 +429,7 @@ export default function EntryDisplayPage() {
                     <div className="space-y-3">
                       <div>
                         <button
-                          onClick={() => navigate(`/trip/${trip.id}`)}
+                          onClick={() => router.push(`/trip/${trip.id}`)}
                           className="font-display text-lg font-medium text-gold hover:text-gold/80 hover:underline"
                         >
                           {trip.name}
@@ -468,7 +469,7 @@ export default function EntryDisplayPage() {
                         variant="outline"
                         size="sm"
                         className="w-full border-gold/30 bg-transparent mt-3"
-                        onClick={() => navigate(`/trip/${trip.id}`)}
+                        onClick={() => router.push(`/trip/${trip.id}`)}
                       >
                         View Full Trip
                       </Button>
@@ -507,7 +508,7 @@ export default function EntryDisplayPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-start border-gold/30 bg-transparent"
-                      onClick={() => navigate(`/entry/edit/${entry.id}`)}
+                      onClick={() => router.push(`/entry/edit/${entry.id}`)}
                     >
                       <Edit3 className="mr-2 h-4 w-4" />
                       Edit Entry
@@ -525,7 +526,7 @@ export default function EntryDisplayPage() {
                       <Button
                         variant="outline"
                         className="w-full justify-start border-gold/30 bg-transparent"
-                        onClick={() => navigate(`/trip/${trip.id}`)}
+                        onClick={() => router.push(`/trip/${trip.id}`)}
                       >
                         <Plane className="mr-2 h-4 w-4" />
                         View Trip
@@ -534,7 +535,7 @@ export default function EntryDisplayPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-start border-gold/30 bg-transparent"
-                      onClick={() => navigate('/map')}
+                      onClick={() => router.push('/map')}
                     >
                       <MapPin className="mr-2 h-4 w-4" />
                       View on Map

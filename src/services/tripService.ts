@@ -11,7 +11,7 @@ import {
   writeBatch,
   increment,
 } from 'firebase/firestore';
-import { db } from '@/api/firebase';
+import { db } from '@/lib/firebase';
 import {
   type Trip,
   type DayLog,

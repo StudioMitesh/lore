@@ -2,26 +2,25 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { Menu, Map, BookOpen, User, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { AnimatedButton } from '@/components/ui/animated-button';
 import { signOut } from 'firebase/auth';
-import { auth } from '@/api/firebase';
-import { useNavigate } from 'react-router-dom';
+import { auth } from '@/lib/firebase';
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = React.useState(false);
-  const location = useLocation();
-  const pathname = location.pathname;
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigate('/login');
+      router.push('/login');
     } catch (err) {
       console.error('Logout error:', err);
     }
@@ -51,7 +50,7 @@ export function Navbar() {
     >
       <div className="container mx-auto flex flex-row items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link
-          to={'/'}
+          href={'/'}
           className="flex items-center gap-2 transition-colors hover:text-gold min-w-[60px]"
         >
           <span className="font-display text-xl font-medium text-deepbrown">Lore</span>
@@ -64,7 +63,7 @@ export function Navbar() {
             return (
               <Link
                 key={item.name}
-                to={item.href}
+                href={item.href}
                 className={cn(
                   'relative flex items-center gap-1.5 font-medium transition-colors',
                   isActive ? 'text-gold' : 'text-deepbrown hover:text-gold'
@@ -83,7 +82,7 @@ export function Navbar() {
           })}
 
           <AnimatedButton
-            onClick={() => navigate('/entry/new')}
+            onClick={() => router.push('/entry/new')}
             animationType="glow"
             className="ml-1"
           >
@@ -92,7 +91,7 @@ export function Navbar() {
           </AnimatedButton>
 
           <AnimatedButton
-            onClick={() => navigate('/new-trip')}
+            onClick={() => router.push('/new-trip')}
             animationType="glow"
             className="ml-1"
           >
@@ -123,7 +122,7 @@ export function Navbar() {
                 return (
                   <Link
                     key={item.name}
-                    to={item.href}
+                    href={item.href}
                     className={cn(
                       'flex items-center gap-3 px-4 py-2 rounded-lg font-medium transition-colors',
                       isActive
@@ -138,7 +137,7 @@ export function Navbar() {
               })}
 
               <AnimatedButton
-                onClick={() => navigate('/entry/new')}
+                onClick={() => router.push('/entry/new')}
                 className="mt-4 w-full"
                 animationType="glow"
               >
