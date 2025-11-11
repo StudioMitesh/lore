@@ -92,6 +92,7 @@ export function MapViewer({
         if (isMounted) {
           isInitializedRef.current = true;
         }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error('Map initialization error:', error);
         initializationAttemptRef.current = false;

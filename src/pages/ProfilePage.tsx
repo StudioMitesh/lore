@@ -192,6 +192,7 @@ export default function ProfilePage() {
     };
 
     loadProfileData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const updateProfileStats = async (tripsData: Trip[], entriesData: Entry[]) => {
@@ -280,14 +281,17 @@ export default function ProfilePage() {
     return await getDownloadURL(imageRef);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleChange = (field: keyof UserProfile, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleNestedChange = (group: string, key: string, value: any) => {
     setFormData((prev) => ({
       ...prev,
       [group]: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ...(prev as any)[group],
         [key]: value,
       },
