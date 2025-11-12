@@ -365,3 +365,79 @@ export interface MapViewerProps {
   showStreetView?: boolean;
   customMapStyle?: google.maps.MapTypeStyle[];
 }
+
+// AI service types
+export interface TripSummary {
+  title: string;
+  overview: string;
+  highlights: string[];
+  topMoments: string[];
+  mood: string;
+  essence: string;
+  shareableStory: string;
+  travelStyle: {
+    pace: string;
+    focus: string;
+    vibe: string;
+  };
+  insights: {
+    favoritePlace: string;
+    hiddenGem: string;
+    personalGrowth: string;
+  };
+  stats: {
+    totalDays: number;
+    placesVisited: number;
+    photosShared: number;
+    entriesPerDay: string;
+  };
+}
+
+export interface Recommendation {
+  destination: string;
+  country: string;
+  matchScore: number;
+  reasoning: string;
+  bestTimeToVisit: string;
+  estimatedDuration: string;
+  activities: string[];
+  basedOn: string[];
+  difficulty: string;
+  budgetLevel: string;
+  uniqueHook: string;
+}
+
+export interface Itinerary {
+  tripName: string;
+  overview: string;
+  days: ItineraryDay[];
+  totalEstimatedCost: string;
+  packingList: string[];
+  travelTips: string[];
+  emergencyInfo: {
+    hospitals: string;
+    police: string;
+    embassy: string;
+  };
+}
+
+export interface ItineraryDay {
+  day: number;
+  date: string;
+  theme: string;
+  location: string;
+  morning: Activity;
+  afternoon: Activity;
+  evening: Activity;
+  transportation: string;
+  estimatedCost: string;
+  tips: string;
+  alternatives: string;
+}
+
+export interface Activity {
+  time: string;
+  activity: string;
+  duration: string;
+  why: string;
+}
