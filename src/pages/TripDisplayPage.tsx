@@ -19,6 +19,8 @@ import {
   Archive,
   Plus,
   User,
+  Link,
+  Search,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
@@ -33,6 +35,8 @@ import { tripService } from '@/services/tripService';
 import { entryService } from '@/services/entryService';
 import { type TripWithDetails, type Entry } from '@/lib/types';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 export default function TripDisplayPage() {
   const router = useRouter();
@@ -44,6 +48,12 @@ export default function TripDisplayPage() {
   const [tripEntries, setTripEntries] = React.useState<Entry[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isTogglingFavorite, setIsTogglingFavorite] = React.useState(false);
+  const [showAttachModal, setShowAttachModal] = React.useState(false);
+  const [availableEntries, setAvailableEntries] = React.useState<Entry[]>([]);
+  const [selectedEntryId, setSelectedEntryId] = React.useState<string>('');
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [isLoadingEntries, setIsLoadingEntries] = React.useState(false);
+
 
   const loadTripData = React.useCallback(async () => {
     if (!tripId) return;
@@ -70,11 +80,40 @@ export default function TripDisplayPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [tripId, navigate]);
+  }, [tripId]);
+
+  const loadAvailableEntries = React.useCallback(async () => {
+    if (!user || !tripId) return;
+
+    try {
+      setIsLoadingEntries(true);
+      const allEntries = await entryService.getUserEntries(user.uid, false);
+      const currentTripEntryIds = new Set(tripEntries.map(entry => entry.id));
+      
+      const available = allEntries.filter(entry => 
+        !currentTripEntryIds.has(entry.id) && 
+        (entry.tripId !== tripId || entry.isStandalone)
+      );
+
+      setAvailableEntries(available);
+    } catch (error) {
+      console.error('Error loading available entries:', error);
+      toast.error('Failed to load available entries');
+    } finally {
+      setIsLoadingEntries(false);
+    }
+  }, [user, tripId, tripEntries]);
+
 
   React.useEffect(() => {
     loadTripData();
   }, [loadTripData]);
+
+  React.useEffect(() => {
+    if (showAttachModal) {
+      loadAvailableEntries();
+    }
+  }, [showAttachModal, loadAvailableEntries]);
 
   const handleFavoriteToggle = async () => {
     if (!trip || isTogglingFavorite) return;
@@ -110,6 +149,46 @@ export default function TripDisplayPage() {
   const handleEntryDelete = () => {
     loadTripData();
   };
+
+  const handleAttachEntry = async () => {
+    if (!selectedEntryId || !trip) {
+      toast.error('Please select an entry to attach');
+      return;
+    }
+
+    try {
+      await tripService.addEntryToTrip(selectedEntryId, trip.id);
+      
+      const attachedEntry = availableEntries.find(entry => entry.id === selectedEntryId);
+      if (attachedEntry) {
+        setTripEntries(prev => [attachedEntry, ...prev]);
+        setTrip(prev => prev ? {
+          ...prev,
+          totalEntries: prev.totalEntries + 1
+        } : null);
+      }
+
+      setSelectedEntryId('');
+      setShowAttachModal(false);
+      toast.success('Entry attached to trip!');
+    } catch (error) {
+      console.error('Error attaching entry to trip:', error);
+      toast.error('Failed to attach entry');
+    }
+  };
+
+  const filteredEntries = React.useMemo(() => {
+    if (!searchQuery.trim()) return availableEntries;
+
+    const query = searchQuery.toLowerCase();
+    return availableEntries.filter(entry => 
+      entry.title.toLowerCase().includes(query) ||
+      entry.location.toLowerCase().includes(query) ||
+      entry.country.toLowerCase().includes(query) ||
+      entry.content.toLowerCase().includes(query) ||
+      entry.tags?.some(tag => tag.toLowerCase().includes(query))
+    );
+  }, [availableEntries, searchQuery]);
 
   const getEntryIcon = (type: string) => {
     switch (type) {
@@ -349,10 +428,24 @@ export default function TripDisplayPage() {
                     )}
                   </h2>
                   {isOwner && (
-                    <AnimatedButton animationType="glow" onClick={() => router.push('/entry/new')}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Entry
-                    </AnimatedButton>
+                    <div className="flex gap-2">
+                      <AnimatedButton 
+                        animationType="glow" 
+                        onClick={() => setShowAttachModal(true)}
+                        variant="outline"
+                        className="border-gold/30 bg-transparent"
+                      >
+                        <Link className="mr-2 h-4 w-4" />
+                        Attach Entry
+                      </AnimatedButton>
+                      <AnimatedButton 
+                        animationType="glow" 
+                        onClick={() => router.push('/entry/new')}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Entry
+                      </AnimatedButton>
+                    </div>
                   )}
                 </div>
 
@@ -388,14 +481,127 @@ export default function TripDisplayPage() {
                         Start documenting your adventure by adding your first entry
                       </p>
                       {isOwner && (
-                        <AnimatedButton animationType="glow" onClick={() => router.push('/entry/new')}>
-                          <Plus className="mr-2 h-4 w-4" />
-                          Add First Entry
-                        </AnimatedButton>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <AnimatedButton 
+                            animationType="glow" 
+                            onClick={() => setShowAttachModal(true)}
+                            variant="outline"
+                            className="border-gold/30 bg-transparent"
+                          >
+                            <Link className="mr-2 h-4 w-4" />
+                            Attach Existing Entry
+                          </AnimatedButton>
+                          <AnimatedButton 
+                            animationType="glow" 
+                            onClick={() => router.push('/entry/new')}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create New Entry
+                          </AnimatedButton>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
                 )}
+
+<Dialog open={showAttachModal} onOpenChange={setShowAttachModal}>
+                  <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
+                    <DialogHeader>
+                      <DialogTitle className="text-deepbrown">Attach Existing Entry</DialogTitle>
+                      <DialogDescription className="text-deepbrown/70">
+                        Select an entry from your existing entries to attach to this trip.
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4 flex-1 overflow-hidden">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-deepbrown/50" />
+                        <Input
+                          placeholder="Search entries..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-9 border-gold/30 focus-visible:ring-gold"
+                        />
+                      </div>
+
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                        {isLoadingEntries ? (
+                          <div className="text-center py-8">
+                            <Loader2 className="h-6 w-6 animate-spin text-gold mx-auto mb-2" />
+                            <p className="text-sm text-deepbrown/70">Loading entries...</p>
+                          </div>
+                        ) : filteredEntries.length > 0 ? (
+                          filteredEntries.map((entry) => (
+                            <div
+                              key={entry.id}
+                              className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                                selectedEntryId === entry.id
+                                  ? 'border-gold bg-gold/5'
+                                  : 'border-gold/20 hover:border-gold/50 hover:bg-parchment-light'
+                              }`}
+                              onClick={() => setSelectedEntryId(entry.id)}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                                  <img
+                                    src={entry.mediaUrls?.[0] || '/placeholder.svg?height=100&width=100'}
+                                    alt={entry.title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {getEntryIcon(entry.type)}
+                                    <h4 className="font-medium text-deepbrown truncate">{entry.title}</h4>
+                                  </div>
+                                  <p className="text-xs text-deepbrown/70 mb-1">
+                                    {entry.location}, {entry.country}
+                                  </p>
+                                  <div className="flex items-center gap-3 text-xs text-deepbrown/60">
+                                    <span>{format(new Date(entry.timestamp), 'MMM d, yyyy')}</span>
+                                    <span>•</span>
+                                    <span className="capitalize">{entry.type}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8">
+                            <BookOpen className="h-12 w-12 text-gold/30 mx-auto mb-3" />
+                            <p className="text-deepbrown/70 text-sm">
+                              {availableEntries.length === 0
+                                ? "You don't have any available entries to attach. Create a new entry first!"
+                                : "No entries match your search."}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowAttachModal(false);
+                          setSelectedEntryId('');
+                          setSearchQuery('');
+                        }}
+                        className="border-gold/30"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleAttachEntry}
+                        disabled={!selectedEntryId}
+                        className="bg-gold hover:bg-gold/90"
+                      >
+                        <Link className="mr-2 h-4 w-4" />
+                        Attach Entry
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               {trip.dayLogs && trip.dayLogs.length > 0 && (

@@ -128,7 +128,7 @@ export default function EditTripPage() {
     };
 
     loadTrip();
-  }, [tripId, user, navigate]);
+  }, [tripId, user]);
 
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

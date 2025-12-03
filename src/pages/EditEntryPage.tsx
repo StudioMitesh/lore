@@ -150,7 +150,7 @@ export default function EditEntryPage() {
     };
 
     loadEntry();
-  }, [entryId, user, navigate]);
+  }, [entryId, user]);
 
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
