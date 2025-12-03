@@ -66,7 +66,7 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-id
 NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-maps-api-key
+GOOGLE_MAPS_API_KEY=your-maps-api-key
 ```
 4. Start the development server
 `npm run dev`

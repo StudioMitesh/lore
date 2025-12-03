@@ -3,16 +3,28 @@ import { Loader } from '@googlemaps/js-api-loader';
 let loaderInstance: Loader | null = null;
 let librariesLoaded = false;
 let isLoading = false;
+let cachedApiKey: string | null = null;
 
-const getGoogleMapsApiKey = (): string => {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  
-  if (!apiKey) {
-    console.error('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set in environment variables');
-    throw new Error('Google Maps API key is not configured. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your .env.local file');
+const getGoogleMapsApiKey = async (): Promise<string> => {
+  if (cachedApiKey) {
+    return cachedApiKey as string;
   }
-  
-  return apiKey;
+
+  try {
+    const response = await fetch('/api/google-maps-key');
+    const data = await response.json();
+    
+    if (!response.ok || !data.apiKey) {
+      console.error('Failed to fetch Google Maps API key:', data.error);
+      throw new Error('Google Maps API key is not configured. Please set GOOGLE_MAPS_API_KEY in your .env.local file');
+    }
+    
+    cachedApiKey = data.apiKey as string;
+    return cachedApiKey;
+  } catch (error) {
+    console.error('Error fetching Google Maps API key:', error);
+    throw new Error('Failed to retrieve Google Maps API key. Please ensure your API route is configured correctly.');
+  }
 };
 
 export const getGoogleMapsLoader = async (): Promise<Loader> => {
@@ -22,7 +34,7 @@ export const getGoogleMapsLoader = async (): Promise<Loader> => {
 
   if (loaderInstance) return loaderInstance;
 
-  const key = getGoogleMapsApiKey();
+  const key = await getGoogleMapsApiKey();
 
   loaderInstance = new Loader({
     apiKey: key,
@@ -142,6 +154,7 @@ export const reloadGoogleMapsLibraries = async (): Promise<void> => {
   librariesLoaded = false;
   isLoading = false;
   loaderInstance = null;
+  cachedApiKey = null;
 
   if (window.google) {
     delete (window as any).google;
