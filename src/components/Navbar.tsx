@@ -4,7 +4,7 @@ import * as React from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Map, BookOpen, User, Plus } from 'lucide-react';
+import { Menu, Map, BookOpen, User, Plus, WandSparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -36,6 +36,7 @@ export function Navbar() {
   }, []);
 
   const navItems = [
+    { name: 'Lora AI', href: '/lora', icon: WandSparkles },
     { name: 'Map', href: '/map', icon: Map },
     { name: 'Entries', href: '/dashboard', icon: BookOpen },
     { name: 'Profile', href: '/profile', icon: User },

@@ -57,3 +57,6 @@ netlify.toml
 logs
 *.log
 lerna-debug.log*
+
+# pycache
+__pycache__/
